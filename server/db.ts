@@ -1400,8 +1400,15 @@ export async function loginAdmin(email: string, password: string): Promise<{ id:
  * One-time seed — creates the admin account if it does not exist.
  */
 export async function seedAdminAccount(email: string, password: string): Promise<boolean> {
+  const connStr = process.env.DATABASE_URL;
+  console.log("[Seed] DATABASE_URL present:", !!connStr);
+  if (!connStr) return false;
+
+  let pool: Pool | null = null;
   try {
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    pool = new Pool({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
+
+    // Create table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS admin_accounts (
         id SERIAL PRIMARY KEY,
@@ -1410,16 +1417,21 @@ export async function seedAdminAccount(email: string, password: string): Promise
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    console.log("[Seed] Table created/verified");
+
+    // Insert admin
     const hash = await hashPassword(password);
     await pool.query(
-      "INSERT INTO admin_accounts (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING",
+      "INSERT INTO admin_accounts (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO UPDATE SET password_hash = $2",
       [email, hash]
     );
-    console.log("[Database] Admin account seeded for:", email);
+    console.log("[Seed] Admin account seeded for:", email);
     return true;
-  } catch (error) {
-    console.error("[Database] Failed to seed admin account:", error);
+  } catch (error: any) {
+    console.error("[Seed] FAILED:", error?.message ?? error);
     return false;
+  } finally {
+    if (pool) await pool.end().catch(() => {});
   }
 }
 
