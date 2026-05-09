@@ -1,0 +1,127 @@
+# Sleepless App - Design Notes from PDF
+
+## App Name & Tagline
+- Name: Sleepless
+- Tagline: "The app of the night"
+
+## Screens Identified
+
+### 1. Login Page
+- Sleepless logo at top
+- User ID display (e.g., User0052)
+- Profile avatar placeholder
+- Username input field with user icon
+- Password input field with lock icon
+- LOGIN button
+- "or you can create an account" link
+
+### 2. Create an Account Page
+- Back arrow + "Create an account" header
+- Profile avatar placeholder
+- Username input with user icon
+- Password input with lock icon
+- Confirm Password input with lock icon
+- Email Address input with email icon
+- Date of Birth (DD/MM/YYYY) with cake icon
+- Submit button
+
+### 3. Home Page
+- Sign out option (top left)
+- Sleepless logo
+- Profile avatar
+- Two main buttons:
+  - Events (calendar icon)
+  - About (question mark icon)
+
+### 4. Province Selection (Events)
+- Events icon at top
+- List of South African provinces:
+  - Eastern Cape
+  - Freestate
+  - Gauteng
+  - KwaZulu-Natal
+  - Limpopo
+  - Mpumalanga
+  - Northern Cape
+  - North West
+  - Western Cape
+- Home icon at bottom
+
+### 5. City Selection (per province)
+Each province has cities:
+- Eastern Cape: East London, Port Elizabeth, Queens Town, Grahamstown, Bedford
+- Freestate: Bloemfontein, Welkom, Sasolburg, Kroonstad, Parys, Bethlehem
+- Gauteng: Joburg, Pretoria, Roodepoort, East Rand, Vereeniging, Krugersdorp
+- KwaZulu-Natal: Durban, Pietermaritzburg, Newcastle, Richards Bay, Vryheid, Margate
+- Limpopo: Polokwane, Bela Bela, Lephalale, Makhado, Thabazimbi, Tzaneen
+- Mpumalanga: Mbombela, Witbank, Standerton, Piet Retief, Malalane, Ermelo
+- Northern Cape: Kimberly, Upington, Springbok, Kuruman, Alexander Bay, Vosburg
+- North West: Rustenburg, Klerksdorp, Potchefstroom, Brits, Mahikeng, Vryburg
+- Western Cape: Cape Town, Stellenbosch, Overberg, Oudtshoorn, Mossel Bay, Knysna
+
+### 6. Event Poster Grid Page
+- Events header with icon
+- Search bar
+- Grid of event posters (3 columns)
+- Scroll indicator
+- Home icon at bottom
+
+### 7. Event Poster Detail
+- Events header with icon
+- Search bar
+- Large circular event poster image
+- Event name (e.g., "Space Jam")
+- Date and Venue info
+- "More info" button
+- Home icon at bottom
+
+### 8. Event Full Details Page
+- Events header with icon
+- Event name
+- Circular event poster
+- Details:
+  - Date
+  - Venue
+  - Time
+  - Line up (DJs/performers)
+- Three action buttons:
+  - Location
+  - Comments
+  - Bookings
+- Home icon at bottom
+
+### 9. Comments Page
+- "Write a status..." input at top with avatar
+- Photo/image post area
+- User info overlay (e.g., User005)
+- Likes count (heart icon with number)
+- Comments count (speech bubble with number)
+- Bottom navigation:
+  - Home icon
+  - Camera icon
+
+### 10. Location Page
+- Location header with pin icon
+- Map display
+- "Search location" input
+- "Share Location" button
+- Two transport icons at bottom:
+  - Walking/person icon
+  - Car/taxi icon
+- Home icon
+
+## Design Style
+- Dark/blurred background with bokeh lights effect
+- Gradient colors (purple, blue, orange, warm tones)
+- White text on dark backgrounds
+- Rounded input fields with icons
+- Circular profile avatars and event images
+- Semi-transparent UI elements
+- Cursive/script font for "Sleepless" logo
+
+## Color Palette (estimated)
+- Primary background: Dark purple/blue gradient
+- Accent: Orange/coral for buttons
+- Text: White
+- Input backgrounds: Semi-transparent white/gray
+- Icons: White with circular borders

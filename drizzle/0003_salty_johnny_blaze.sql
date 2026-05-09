@@ -1,0 +1,1 @@
+ALTER TABLE `organizers` ADD `passwordHash` varchar(255);
