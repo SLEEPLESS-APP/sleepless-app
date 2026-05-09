@@ -1379,21 +1379,16 @@ export async function getBookingsByUserId(userId: number) {
 // Admins table — separate from organizers so credentials are fully isolated.
 // The table is defined inline here; run the companion migration to create it.
 export async function loginAdmin(email: string, password: string): Promise<{ id: number; email: string } | null> {
-  const db = await getDb();
-  if (!db) return null;
-
   try {
-    // Use a raw query so we don't need to add the table to the Drizzle schema file
-    const [rows] = await (db as any).execute(
-      "SELECT id, email, password_hash FROM admin_accounts WHERE email = ? LIMIT 1",
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const res = await pool.query(
+      "SELECT id, email, password_hash FROM admin_accounts WHERE email = $1 LIMIT 1",
       [email]
     );
-    const row = Array.isArray(rows) ? rows[0] : null;
+    const row = res.rows[0];
     if (!row) return null;
-
     const match = await bcrypt.compare(password, row.password_hash);
     if (!match) return null;
-
     return { id: row.id, email: row.email };
   } catch (error) {
     console.error("[Database] Admin login error:", error);
@@ -1403,27 +1398,24 @@ export async function loginAdmin(email: string, password: string): Promise<{ id:
 
 /**
  * One-time seed — creates the admin account if it does not exist.
- * Call via: POST /api/trpc/admin.seed  (remove this endpoint after first run!)
  */
 export async function seedAdminAccount(email: string, password: string): Promise<boolean> {
-  const db = await getDb();
-  if (!db) return false;
-
   try {
-    await (db as any).execute(
-      `CREATE TABLE IF NOT EXISTS admin_accounts (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS admin_accounts (
+        id SERIAL PRIMARY KEY,
         email VARCHAR(320) NOT NULL UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`
-    );
-
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
     const hash = await hashPassword(password);
-    await (db as any).execute(
-      "INSERT IGNORE INTO admin_accounts (email, password_hash) VALUES (?, ?)",
+    await pool.query(
+      "INSERT INTO admin_accounts (email, password_hash) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING",
       [email, hash]
     );
+    console.log("[Database] Admin account seeded for:", email);
     return true;
   } catch (error) {
     console.error("[Database] Failed to seed admin account:", error);
@@ -1440,37 +1432,26 @@ export async function registerUser(data: {
   email: string;
   password: string;
 }): Promise<{ id: number; username: string; email: string } | { error: string }> {
-  const db = await getDb();
-  if (!db) return { error: "Database unavailable" };
-
   try {
-    await (db as any).execute(
-      `CREATE TABLE IF NOT EXISTS app_users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS app_users (
+        id SERIAL PRIMARY KEY,
         username VARCHAR(100) NOT NULL,
         email VARCHAR(320) NOT NULL UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )`
-    );
-
-    const [existing] = await (db as any).execute(
-      "SELECT id FROM app_users WHERE email = ? LIMIT 1", [data.email]
-    );
-    if (Array.isArray(existing) && existing.length > 0) {
-      return { error: "An account with this email already exists" };
-    }
-
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    const existing = await pool.query("SELECT id FROM app_users WHERE email = $1 LIMIT 1", [data.email]);
+    if (existing.rows.length > 0) return { error: "An account with this email already exists" };
     const hash = await hashPassword(data.password);
-    await (db as any).execute(
-      "INSERT INTO app_users (username, email, password_hash) VALUES (?, ?, ?)",
+    await pool.query(
+      "INSERT INTO app_users (username, email, password_hash) VALUES ($1, $2, $3)",
       [data.username, data.email, hash]
     );
-
-    const [rows] = await (db as any).execute(
-      "SELECT id, username, email FROM app_users WHERE email = ? LIMIT 1", [data.email]
-    );
-    const user = Array.isArray(rows) ? rows[0] : null;
+    const res = await pool.query("SELECT id, username, email FROM app_users WHERE email = $1 LIMIT 1", [data.email]);
+    const user = res.rows[0];
     if (!user) return { error: "Registration failed" };
     return user as { id: number; username: string; email: string };
   } catch (err: any) {
@@ -1483,14 +1464,12 @@ export async function loginUser(
   email: string,
   password: string
 ): Promise<{ id: number; username: string; email: string } | null> {
-  const db = await getDb();
-  if (!db) return null;
-
   try {
-    const [rows] = await (db as any).execute(
-      "SELECT id, username, email, password_hash FROM app_users WHERE email = ? LIMIT 1", [email]
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const res = await pool.query(
+      "SELECT id, username, email, password_hash FROM app_users WHERE email = $1 LIMIT 1", [email]
     );
-    const row = Array.isArray(rows) ? rows[0] : null;
+    const row = res.rows[0];
     if (!row) return null;
     const match = await bcrypt.compare(password, row.password_hash);
     if (!match) return null;
