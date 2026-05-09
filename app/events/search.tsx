@@ -61,7 +61,7 @@ export default function SearchScreen() {
           <Text style={styles.eventDate}>{new Date(item.eventDate).toLocaleDateString('en-ZA')}</Text>
         </View>
         <View style={styles.eventBottom}>
-          {item.eventType item.type && (item.type && ( (
+          {item.eventType && (
             <View style={styles.typeBadge}>
               <Text style={styles.typeText}>{item.eventType}</Text>
             </View>
