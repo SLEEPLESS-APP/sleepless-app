@@ -190,6 +190,8 @@ export const appRouter = router({
         const ok = await updateOrganizerProfile(organizerId, data);
         return { success: ok };
       }),
+
+    analytics: publicProcedure
       .input(z.object({ organizerId: z.number() }))
       .query(async ({ input }) => {
         return await getOrganizerAnalytics(input.organizerId);
