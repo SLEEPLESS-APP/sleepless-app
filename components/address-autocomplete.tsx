@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { Platform } from "react-native";
+import { getApiBaseUrl } from "@/constants/oauth";
 import {
   View,
   Text,
@@ -74,12 +76,21 @@ export function AddressAutocomplete({
 
     setIsLoading(true);
     try {
-      const response = await fetch(
+      let responseData: any;
+      if (Platform.OS === "web") {
+        const base = getApiBaseUrl();
+        const res = await fetch(`${base}/api/trpc/places.autocomplete?batch=1&input=${encodeURIComponent(JSON.stringify({ "0": { json: { input: query, country } } }))}`);
+        const json = await res.json();
+        responseData = json?.[0]?.result?.data?.json ?? { predictions: [] };
+      } else {
+        const response = await fetch(
         `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
           searchText
         )}&components=country:${country}&key=${GOOGLE_PLACES_API_KEY}`
-      );
-      const data = await response.json();
+        );
+        responseData = await response.json();
+      }
+      const data = responseData;
 
       if (data.status === "OK" && data.predictions) {
         setPredictions(data.predictions);
@@ -112,10 +123,18 @@ export function AddressAutocomplete({
 
   const getPlaceDetails = async (placeId: string, description: string) => {
     try {
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=formatted_address,geometry,address_components&key=${GOOGLE_PLACES_API_KEY}`
-      );
-      const data = await response.json();
+      let data: any;
+      if (Platform.OS === "web") {
+        const base = getApiBaseUrl();
+        const res = await fetch(`${base}/api/trpc/places.details?batch=1&input=${encodeURIComponent(JSON.stringify({ "0": { json: { placeId } } }))}`);
+        const json = await res.json();
+        data = json?.[0]?.result?.data?.json ?? {};
+      } else {
+        const response = await fetch(
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=formatted_address,geometry,address_components&key=${GOOGLE_PLACES_API_KEY}`
+        );
+        data = await response.json();
+      }
 
       if (data.status === "OK" && data.result) {
         const result = data.result;
