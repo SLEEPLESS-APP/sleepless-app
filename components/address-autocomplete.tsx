@@ -13,7 +13,7 @@ import {
 } from "react-native";
 
 // Google Places API Key
-const GOOGLE_PLACES_API_KEY = "48227a870c69876f6e9276ce559f05c859c263280ad04edb7e39226518c19763";
+const GOOGLE_PLACES_API_KEY = "AIzaSyCj1RvxSY3_mm5cgrEpvYo0MJC0RJ88skE";
 
 interface AddressPrediction {
   place_id: string;
@@ -76,23 +76,27 @@ export function AddressAutocomplete({
 
     setIsLoading(true);
     try {
-      let responseData: any;
-      if (Platform.OS === "web") {
-        const base = getApiBaseUrl();
-        const res = await fetch(`${base}/api/trpc/places.autocomplete?batch=1&input=${encodeURIComponent(JSON.stringify({ "0": { json: { input: query, country } } }))}`);
-        const json = await res.json();
-        responseData = json?.[0]?.result?.data?.json ?? { predictions: [] };
-      } else {
-        const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-          searchText
-        )}&components=country:${country}&key=${GOOGLE_PLACES_API_KEY}`
-        );
-        responseData = await response.json();
-      }
-      const data = responseData;
+      // Use Nominatim (OpenStreetMap) - free, no API key needed
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchText)}&countrycodes=${country}&format=json&addressdetails=1&limit=5`;
+      const response = await fetch(nominatimUrl, {
+        headers: { "Accept-Language": "en", "User-Agent": "SleeplessApp/1.0" }
+      });
+      const results = await response.json();
+      const data = {
+        predictions: results.map((r: any) => ({
+          place_id: r.place_id.toString(),
+          description: r.display_name,
+          structured_formatting: {
+            main_text: r.name || r.display_name.split(",")[0],
+            secondary_text: r.display_name.split(",").slice(1).join(",").trim(),
+          },
+          lat: r.lat,
+          lon: r.lon,
+          address: r.address,
+        }))
+      };
 
-      if (data.status === "OK" && data.predictions) {
+      if (data.predictions && data.predictions.length > 0) {
         setPredictions(data.predictions);
         setShowDropdown(true);
       } else {
@@ -123,18 +127,25 @@ export function AddressAutocomplete({
 
   const getPlaceDetails = async (placeId: string, description: string) => {
     try {
-      let data: any;
-      if (Platform.OS === "web") {
-        const base = getApiBaseUrl();
-        const res = await fetch(`${base}/api/trpc/places.details?batch=1&input=${encodeURIComponent(JSON.stringify({ "0": { json: { placeId } } }))}`);
-        const json = await res.json();
-        data = json?.[0]?.result?.data?.json ?? {};
-      } else {
-        const response = await fetch(
-          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=formatted_address,geometry,address_components&key=${GOOGLE_PLACES_API_KEY}`
-        );
-        data = await response.json();
-      }
+      // Use Nominatim reverse/lookup
+      const lookupUrl = `https://nominatim.openstreetmap.org/lookup?osm_ids=N${placeId}&format=json&addressdetails=1`;
+      const lookupRes = await fetch(lookupUrl, {
+        headers: { "Accept-Language": "en", "User-Agent": "SleeplessApp/1.0" }
+      });
+      const lookupResults = await lookupRes.json();
+      const place = lookupResults?.[0];
+      const data = {
+        result: {
+          formatted_address: place?.display_name ?? "",
+          geometry: {
+            location: {
+              lat: parseFloat(place?.lat ?? "0"),
+              lng: parseFloat(place?.lon ?? "0"),
+            }
+          },
+          address_components: [],
+        }
+      };
 
       if (data.status === "OK" && data.result) {
         const result = data.result;
@@ -179,7 +190,10 @@ export function AddressAutocomplete({
     setIsLoading(true);
     Keyboard.dismiss();
 
-    const details = await getPlaceDetails(prediction.place_id, prediction.description);
+    // Use lat/lon from Nominatim prediction directly if available
+    const details = (prediction as any).lat 
+      ? { result: { formatted_address: prediction.description, geometry: { location: { lat: parseFloat((prediction as any).lat), lng: parseFloat((prediction as any).lon) } }, address_components: [] } }
+      : await getPlaceDetails(prediction.place_id, prediction.description);
 
     if (details) {
       setQuery(details.formatted_address);

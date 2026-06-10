@@ -634,7 +634,7 @@ export const appRouter = router({
     autocomplete: publicProcedure
       .input(z.object({ input: z.string(), country: z.string().default("za") }))
       .query(async ({ input }) => {
-        const GOOGLE_PLACES_API_KEY = "48227a870c69876f6e9276ce559f05c859c263280ad04edb7e39226518c19763";
+        const GOOGLE_PLACES_API_KEY = "AIzaSyCj1RvxSY3_mm5cgrEpvYo0MJC0RJ88skE";
         const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input.input)}&components=country:${input.country}&key=${GOOGLE_PLACES_API_KEY}`;
         const res = await fetch(url);
         return res.json();
@@ -642,7 +642,7 @@ export const appRouter = router({
     details: publicProcedure
       .input(z.object({ placeId: z.string() }))
       .query(async ({ input }) => {
-        const GOOGLE_PLACES_API_KEY = "48227a870c69876f6e9276ce559f05c859c263280ad04edb7e39226518c19763";
+        const GOOGLE_PLACES_API_KEY = "AIzaSyCj1RvxSY3_mm5cgrEpvYo0MJC0RJ88skE";
         const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${input.placeId}&fields=formatted_address,geometry,address_components&key=${GOOGLE_PLACES_API_KEY}`;
         const res = await fetch(url);
         return res.json();
