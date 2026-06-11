@@ -51,10 +51,7 @@ export const appRouter = router({
             .select()
             .from(events)
             .where(
-              and(
-                eq(events.status, "approved"),
-                sql`${events.eventDate} >= CURDATE()`
-              )
+              eq(events.status, "approved")
             )
             .orderBy(events.eventDate);
 
