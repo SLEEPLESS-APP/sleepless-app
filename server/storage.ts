@@ -8,17 +8,14 @@ export async function storagePut(
   contentType: string
 ): Promise<{ key: string; url: string }> {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  if (!cloudName) throw new Error("Cloudinary cloud name missing");
 
-  if (!cloudName) {
-    throw new Error("Cloudinary cloud name missing");
-  }
-
-  const base64 = data.toString("base64");
-  const dataUri = `data:${contentType};base64,${base64}`;
   const publicId = key.replace(/[^a-zA-Z0-9_-]/g, "_");
 
+  // Use multipart form with binary blob - Cloudinary accepts this
   const form = new FormData();
-  form.append("file", dataUri);
+  const blob = new Blob([data], { type: contentType });
+  form.append("file", blob, publicId + ".jpg");
   form.append("upload_preset", "sleepless_uploads");
   form.append("public_id", publicId);
 
