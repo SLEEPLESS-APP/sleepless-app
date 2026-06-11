@@ -2,18 +2,18 @@ import { View, Text, ScrollView, StyleSheet, Alert, TouchableOpacity, ActivityIn
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
-import * as ImagePicker from "expo-image-picker";
-import * as ImageManipulator from "expo-image-manipulator";
-import DateTimePicker from "@react-native-community/datetimepicker";
+
+
 
 import { ScreenContainer } from "@/components/screen-container";
 import { GradientBackground, GlassInput, BackButton } from "@/components/sleepless";
 import { AddressAutocomplete } from "@/components/address-autocomplete";
+import { WebDateTimePicker } from "@/components/WebDateTimePicker";
 import { TicketTypesEditor, TicketTypeData } from "@/components/ticket-types-editor";
 import { LinearGradient } from "expo-linear-gradient";
 import { useOrganizer } from "@/lib/organizer-context";
 import { trpc } from "@/lib/trpc";
-import * as FileSystem from "expo-file-system/legacy";
+
 
 export default function CreateEvent() {
   const router = useRouter();
@@ -93,19 +93,21 @@ export default function CreateEvent() {
   const createTicketTypesMutation = trpc.ticketTypes.create.useMutation();
 
   const pickImage = async () => {
+    const ImagePicker = await import("expo-image-picker");
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [3, 4],
+      aspect: [1, 1],
       quality: 0.8,
     });
 
     if (!result.canceled && result.assets[0]) {
       // Compress image before setting
+      const ImageManipulator = await import("expo-image-manipulator");
       const compressed = await ImageManipulator.manipulateAsync(
         result.assets[0].uri,
-        [{ resize: { width: 1200 } }], // Resize to max width 1200px
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        [{ resize: { width: 1080, height: 1080 } }],
+        { compress: 0.8, format: "jpeg" }
       );
       setPosterImage(compressed.uri);
       setFormData({ ...formData, posterUrl: compressed.uri });
@@ -138,10 +140,9 @@ export default function CreateEvent() {
       !formData.venue ||
       !formData.city ||
       !formData.eventDate ||
-      !formData.eventTime ||
-      !posterImage
+      !formData.eventTime
     ) {
-      Alert.alert("Error", "Please fill in all required fields and upload a poster");
+      Platform.OS === "web" ? window.alert("Please fill in all required fields (title, description, venue, city, date and time)") : Alert.alert("Error", "Please fill in all required fields (title, description, venue, city, date and time)");
       return;
     }
 
@@ -152,36 +153,51 @@ export default function CreateEvent() {
         (tt) => !tt.price || !tt.quantity || parseFloat(tt.price) < 0 || parseInt(tt.quantity) < 1
       );
       if (invalidTickets.length > 0) {
-        Alert.alert("Error", "Please set price and quantity for all ticket types");
+        Platform.OS === "web" ? window.alert("Please set price and quantity for all ticket types") : Alert.alert("Error", "Please set price and quantity for all ticket types");
         return;
       }
       if (ticketTypes.length === 0) {
-        Alert.alert("Error", "Please add at least one ticket type");
+        Platform.OS === "web" ? window.alert("Please add at least one ticket type") : Alert.alert("Error", "Please add at least one ticket type");
         return;
       }
     } else {
       if (!formData.price || !formData.ticketsAvailable) {
-        Alert.alert("Error", "Please fill in ticket price and quantity");
+        Platform.OS === "web" ? window.alert("Please fill in ticket price and quantity") : Alert.alert("Error", "Please fill in ticket price and quantity");
         return;
       }
     }
 
     try {
-      // Upload image to S3
-      const base64 = await FileSystem.readAsStringAsync(posterImage, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      const fileName = posterImage.split("/").pop() || "event.jpg";
-      const uploadResult = await uploadImageMutation.mutateAsync({
-        base64Data: base64,
-        fileName,
-        contentType: "image/jpeg",
-      });
+      // Upload image if provided, otherwise use placeholder
+      let posterUrl = "https://placehold.co/800x400/1a1a2e/ffffff?text=" + encodeURIComponent(formData.title || "Event");
+      
+      if (posterImage) {
+        let base64: string;
+        if (Platform.OS === "web") {
+          base64 = posterImage.split(",")[1] ?? posterImage;
+        } else {
+          const FS = await import("expo-file-system/legacy");
+          base64 = await FS.readAsStringAsync(posterImage, {
+            encoding: FS.EncodingType.Base64,
+          });
+        }
+        const fileName = posterImage.split("/").pop() || "event.jpg";
+        try {
+          const uploadResult = await uploadImageMutation.mutateAsync({
+            base64Data: base64,
+            fileName,
+            contentType: "image/jpeg",
+          });
+          posterUrl = uploadResult.url;
+        } catch (uploadErr) {
+          console.warn("Image upload failed, using placeholder:", uploadErr);
+        }
+      }
+      const uploadResult = { url: posterUrl };
 
       // Create event in database
       if (!organizer) {
-        Alert.alert("Error", "You must be logged in as an organizer to create events");
+        Platform.OS === "web" ? window.alert("You must be logged in as an organizer to create events") : Alert.alert("Error", "You must be logged in as an organizer to create events");
         return;
       }
 
@@ -232,12 +248,17 @@ export default function CreateEvent() {
         ? "Event saved as draft! You can edit and submit it later."
         : "Event submitted for review! You'll be notified once it's approved.";
       
-      Alert.alert("Success", message, [
-        { text: "OK", onPress: () => router.replace("/organizer/my-events" as any) },
-      ]);
+      if (Platform.OS === "web") {
+        window.alert(message);
+        router.replace("/organizer/my-events" as any);
+      } else {
+        Alert.alert("Success", message, [
+          { text: "OK", onPress: () => router.replace("/organizer/my-events" as any) },
+        ]);
+      }
     } catch (error) {
       console.error("Error creating event:", error);
-      Alert.alert("Error", "Failed to create event. Please try again.");
+      Platform.OS === "web" ? window.alert("Failed to create event. Please try again.") : Alert.alert("Error", "Failed to create event. Please try again.");
     }
   };
 
@@ -325,8 +346,8 @@ export default function CreateEvent() {
               country="za"
               onAddressSelect={(addressDetails) => {
                 // Extract city from address components
-                const city = addressDetails.components.locality || formData.city;
-                const province = addressDetails.components.administrative_area || formData.province;
+                const city = addressDetails.components?.locality || addressDetails.components?.city || addressDetails.components?.town || addressDetails.components?.village || formData.city;
+                const province = addressDetails.components?.administrative_area || addressDetails.components?.state || addressDetails.components?.county || formData.province;
                 setFormData({
                   ...formData,
                   address: addressDetails.formatted_address,
@@ -507,6 +528,7 @@ export default function CreateEvent() {
             {/* Date & Time */}
             <Text style={styles.sectionTitle}>Date & Time</Text>
 
+            {Platform.OS !== "web" && (
             <TouchableOpacity
               style={styles.datePickerButton}
               onPress={() => setShowDatePicker(true)}
@@ -515,17 +537,19 @@ export default function CreateEvent() {
                 {formData.eventDate || "Select Event Date *"}
               </Text>
             </TouchableOpacity>
-
-            {showDatePicker && (
-              <DateTimePicker
-                value={selectedDate}
-                mode="date"
-                display="default"
-                onChange={handleDateChange}
-                minimumDate={new Date()}
-              />
             )}
 
+            <WebDateTimePicker
+              value={selectedDate}
+              mode="date"
+              label="Event Date *"
+              onChange={(date) => {
+                setSelectedDate(date);
+                setFormData({ ...formData, eventDate: date.toISOString().split("T")[0] });
+              }}
+            />
+
+            {Platform.OS !== "web" && (
             <TouchableOpacity
               style={styles.datePickerButton}
               onPress={() => setShowTimePicker(true)}
@@ -534,15 +558,19 @@ export default function CreateEvent() {
                 {formData.eventTime || "Select Event Time *"}
               </Text>
             </TouchableOpacity>
-
-            {showTimePicker && (
-              <DateTimePicker
-                value={selectedTime}
-                mode="time"
-                display="default"
-                onChange={handleTimeChange}
-              />
             )}
+
+            <WebDateTimePicker
+              value={selectedTime}
+              mode="time"
+              label="Event Time *"
+              onChange={(time) => {
+                setSelectedTime(time);
+                const h = time.getHours().toString().padStart(2, "0");
+                const m = time.getMinutes().toString().padStart(2, "0");
+                setFormData({ ...formData, eventTime: h + ":" + m });
+              }}
+            />
 
             {/* Ticketing */}
             <Text style={styles.sectionTitle}>Ticketing</Text>

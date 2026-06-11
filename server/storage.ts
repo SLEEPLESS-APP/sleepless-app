@@ -1,5 +1,5 @@
 /**
- * Cloudinary storage service
+ * Cloudinary storage service using unsigned upload preset
  */
 
 export async function storagePut(
@@ -8,32 +8,19 @@ export async function storagePut(
   contentType: string
 ): Promise<{ key: string; url: string }> {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
-  if (!cloudName || !apiKey || !apiSecret) {
-    throw new Error("Cloudinary credentials missing");
+  if (!cloudName) {
+    throw new Error("Cloudinary cloud name missing");
   }
 
-  const timestamp = Math.round(Date.now() / 1000);
-  const publicId = key.replace(/[^a-zA-Z0-9_-]/g, "_");
-
-  const crypto = await import("crypto");
-  const signature = crypto
-    .createHash("sha1")
-    .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
-    .digest("hex");
-
-  // Use data URI - most reliable for Cloudinary REST API
   const base64 = data.toString("base64");
   const dataUri = `data:${contentType};base64,${base64}`;
+  const publicId = key.replace(/[^a-zA-Z0-9_-]/g, "_");
 
   const form = new FormData();
   form.append("file", dataUri);
+  form.append("upload_preset", "sleepless_uploads");
   form.append("public_id", publicId);
-  form.append("timestamp", timestamp.toString());
-  form.append("api_key", apiKey);
-  form.append("signature", signature);
 
   const response = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
