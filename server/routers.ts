@@ -425,9 +425,19 @@ export const appRouter = router({
           });
         }
         
-        // TODO: Fetch event and organizer details to send email
-        // const event = await getEventById(input.eventId);
-        // const organizer = await getOrganizerById(event.organizerId);
+        try {
+          const event = await getEventById(input.eventId);
+          const org = await getOrganizerByEventId(input.eventId);
+          if (event && org?.contactEmail) {
+            await sendEmail({
+              to: org.contactEmail,
+              subject: 'Your event "' + event.title + '" has been approved! ✅',
+              html: '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a1a;color:#fff;padding:32px;border-radius:12px;"><h1 style="color:#4CAF50;">Event Approved! ✅</h1><p style="color:#ccc;">Hi <strong>' + org.companyName + '</strong>, your event is now live on Sleepless!</p><div style="background:#1a1a2e;border-left:4px solid #4CAF50;padding:16px;border-radius:8px;margin:24px 0;"><p style="color:#fff;font-size:18px;margin:0;"><strong>' + event.title + '</strong></p><p style="color:#ccc;margin:8px 0 0 0;">📍 ' + event.venue + ', ' + event.city + '</p></div><a href="https://sleeplessapp.co.za" style="background:#ff6b6b;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;margin-top:16px;">View on Sleepless</a><p style="color:#888;font-size:13px;margin-top:32px;">Questions? Contact admin@sleeplessapp.co.za</p></div>',
+            });
+          }
+        } catch (emailErr) {
+          console.error("[Approve] Failed to send approval email:", emailErr);
+        }
         // await sendEventApprovalEmail(organizer.email, event.title, event.id);
         
         return { success: true };
@@ -473,6 +483,26 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const success = await rejectOrganizer(input.organizerId, input.reason);
         if (!success) throw new Error("Failed to reject organizer");
+        return { success: true };
+      }),
+    deleteOrganizer: publicProcedure
+      .input(z.object({ organizerId: z.number() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const { organizers } = await import("../drizzle/schema.js");
+        const { eq } = await import("drizzle-orm");
+        await db.delete(organizers).where(eq(organizers.id, input.organizerId));
+        return { success: true };
+      }),
+    updateOrganizerEmail: publicProcedure
+      .input(z.object({ organizerId: z.number(), email: z.string().email() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database not available");
+        const { organizers } = await import("../drizzle/schema.js");
+        const { eq } = await import("drizzle-orm");
+        await db.update(organizers).set({ contactEmail: input.email }).where(eq(organizers.id, input.organizerId));
         return { success: true };
       }),
   }),
