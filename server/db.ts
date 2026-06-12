@@ -645,28 +645,38 @@ export async function getAdminMetrics() {
   }
 
   try {
-    const [organizersResult, eventsResult, bookingsResult, usersResult] = await Promise.all([
-      db.select({ count: sql<number>`COUNT(*)` }).from(organizers),
-      db.select({ 
-        total: sql<number>`COUNT(*)`,
+    let totalOrganizers = 0, pendingApprovals = 0, activeEvents = 0;
+    let platformRevenue = 0, totalBookings = 0, totalUsers = 0;
+
+    try {
+      const r = await db.select({ count: sql<number>`COUNT(*)` }).from(organizers);
+      totalOrganizers = Number(r[0]?.count || 0);
+    } catch(e) { console.error("metrics: organizers query failed", e); }
+
+    try {
+      const r = await db.select({ 
         pending: sql<number>`SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END)`,
         approved: sql<number>`SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END)`
-      }).from(events),
-      db.select({ 
-        count: sql<number>`COUNT(*)`,
-        revenue: sql<number>`SUM(totalAmount)`
-      }).from(bookings),
-      db.select({ count: sql<number>`COUNT(*)` }).from(users),
-    ]);
+      }).from(events);
+      pendingApprovals = Number(r[0]?.pending || 0);
+      activeEvents = Number(r[0]?.approved || 0);
+    } catch(e) { console.error("metrics: events query failed", e); }
 
-    return {
-      totalOrganizers: Number(organizersResult[0]?.count || 0),
-      pendingApprovals: Number(eventsResult[0]?.pending || 0),
-      activeEvents: Number(eventsResult[0]?.approved || 0),
-      platformRevenue: Number(bookingsResult[0]?.revenue || 0),
-      totalBookings: Number(bookingsResult[0]?.count || 0),
-      totalUsers: Number(usersResult[0]?.count || 0),
-    };
+    try {
+      const r = await db.select({ count: sql<number>`COUNT(*)` }).from(users);
+      totalUsers = Number(r[0]?.count || 0);
+    } catch(e) { console.error("metrics: users query failed", e); }
+
+    try {
+      const r = await db.select({ 
+        count: sql<number>`COUNT(*)`,
+        revenue: sql<number>`SUM(total_amount)`
+      }).from(bookings);
+      totalBookings = Number(r[0]?.count || 0);
+      platformRevenue = Number(r[0]?.revenue || 0);
+    } catch(e) { console.error("metrics: bookings query failed", e); }
+
+    return { totalOrganizers, pendingApprovals, activeEvents, platformRevenue, totalBookings, totalUsers };
   } catch (error) {
     console.error("[Database] Failed to get admin metrics:", error);
     return {
