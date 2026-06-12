@@ -1499,10 +1499,7 @@ export async function deleteEvent(eventId: number, organizerId: number): Promise
   const db = await getDb();
   if (!db) return false;
   try {
-    await db
-      .update(events)
-      .set({ status: "cancelled" })
-      .where(and(eq(events.id, eventId), eq(events.organizerId, organizerId)));
+    await db.delete(events).where(and(eq(events.id, eventId), eq(events.organizerId, organizerId)));
     return true;
   } catch (err) {
     console.error("[Database] deleteEvent error:", err);
