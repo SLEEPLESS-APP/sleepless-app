@@ -129,10 +129,36 @@ export const appRouter = router({
 
         const organizer = await createOrganizer(input);
         if (!organizer) {
-          // Insert may have succeeded but fetch-back failed — still treat as success
-          // The user can log in normally after admin approval
           console.warn("[Register] Organizer created but fetch-back returned null");
           return { success: true, organizer: null };
+        }
+
+        // Send welcome email
+        try {
+          await sendEmail({
+            to: input.email,
+            subject: "Welcome to Sleepless – Application Received!",
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a1a;color:#fff;padding:32px;border-radius:12px;">
+                <h1 style="color:#ff6b6b;font-size:28px;margin-bottom:8px;">Welcome to Sleepless! 🎉</h1>
+                <p style="color:#ccc;font-size:16px;">Hi <strong>${organizer.companyName}</strong>,</p>
+                <p style="color:#ccc;">Thank you for registering as an event organizer on Sleepless. Your application has been received and is currently being reviewed by our admin team.</p>
+                <div style="background:#1a1a2e;border-left:4px solid #ff6b6b;padding:16px;border-radius:8px;margin:24px 0;">
+                  <p style="color:#fff;margin:0;font-size:15px;">⏳ <strong>What happens next?</strong></p>
+                  <p style="color:#ccc;margin:8px 0 0 0;">Our team will review your application and approve your account within 24-48 hours. You'll receive an email notification once your account is activated.</p>
+                </div>
+                <p style="color:#ccc;">Once approved, you'll be able to:</p>
+                <ul style="color:#ccc;">
+                  <li>Create and manage events</li>
+                  <li>Sell tickets directly on the platform</li>
+                  <li>Track attendance and analytics</li>
+                </ul>
+                <p style="color:#888;font-size:13px;margin-top:32px;">If you have any questions, contact us at admin@sleeplessapp.co.za</p>
+              </div>
+            `,
+          });
+        } catch (emailErr) {
+          console.error("[Register] Failed to send welcome email:", emailErr);
         }
 
         return { success: true, organizer };
