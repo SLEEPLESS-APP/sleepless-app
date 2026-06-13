@@ -507,6 +507,59 @@ export const appRouter = router({
       }),
   }),
 
+  // PayFast payment
+  payfast: router({
+    getUrl: publicProcedure
+      .input(z.object({
+        eventId: z.number(),
+        eventName: z.string(),
+        quantity: z.number(),
+        totalAmount: z.number(), // in Rands
+        customerEmail: z.string().optional(),
+        customerName: z.string().optional(),
+        transactionId: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        const crypto = await import("crypto");
+        const MERCHANT_ID = process.env.PAYFAST_MERCHANT_ID ?? "34812391";
+        const MERCHANT_KEY = process.env.PAYFAST_MERCHANT_KEY ?? "grvghx5kh378h";
+        const RETURN_URL = "https://sleeplessapp.co.za/events/booking-confirmation";
+        const CANCEL_URL = "https://sleeplessapp.co.za";
+        const NOTIFY_URL = "https://sleepless-app-production.up.railway.app/api/payfast/notify";
+
+        const fields: Record<string, string> = {
+          merchant_id: MERCHANT_ID,
+          merchant_key: MERCHANT_KEY,
+          return_url: RETURN_URL,
+          cancel_url: CANCEL_URL,
+          notify_url: NOTIFY_URL,
+          m_payment_id: input.transactionId,
+          amount: input.totalAmount.toFixed(2),
+          item_name: input.eventName.slice(0, 100),
+          item_description: `${input.quantity} ticket(s)`,
+        };
+
+        if (input.customerEmail) fields.email_address = input.customerEmail;
+        if (input.customerName) {
+          const parts = input.customerName.split(" ");
+          fields.name_first = parts[0];
+          fields.name_last = parts.slice(1).join(" ") || "-";
+        }
+
+        const sigString = Object.keys(fields)
+          .sort()
+          .map(k => `${k}=${encodeURIComponent(fields[k]).replace(/%20/g, "+")}`)
+          .join("&");
+
+        const signature = crypto.createHash("md5").update(sigString).digest("hex");
+        const params = new URLSearchParams({ ...fields, signature });
+        
+        return {
+          url: `https://www.payfast.co.za/eng/process?${params.toString()}`,
+        };
+      }),
+  }),
+
   // Ticket types routes
   ticketTypes: router({
     getByEventId: publicProcedure
