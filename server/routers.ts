@@ -535,7 +535,7 @@ export const appRouter = router({
           notify_url: NOTIFY_URL,
           m_payment_id: input.transactionId,
           amount: input.totalAmount.toFixed(2),
-          item_name: input.eventName.slice(0, 100),
+          item_name: input.eventName.trim().slice(0, 100),
           item_description: `${input.quantity} ticket(s)`,
         };
 
