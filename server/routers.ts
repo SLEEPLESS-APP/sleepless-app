@@ -527,9 +527,9 @@ export const appRouter = router({
         const CANCEL_URL = "https://sleeplessapp.co.za";
         const NOTIFY_URL = "https://sleepless-app-production.up.railway.app/api/payfast/notify";
 
-        const fields: Record<string, string> = {
+        // Fields for signature (merchant_key excluded per PayFast docs)
+        const sigFields: Record<string, string> = {
           merchant_id: MERCHANT_ID,
-          merchant_key: MERCHANT_KEY,
           return_url: RETURN_URL,
           cancel_url: CANCEL_URL,
           notify_url: NOTIFY_URL,
@@ -539,20 +539,23 @@ export const appRouter = router({
           item_description: `${input.quantity} ticket(s)`,
         };
 
-        if (input.customerEmail) fields.email_address = input.customerEmail;
+        if (input.customerEmail) sigFields.email_address = input.customerEmail;
         if (input.customerName) {
           const parts = input.customerName.split(" ");
-          fields.name_first = parts[0];
-          fields.name_last = parts.slice(1).join(" ") || "-";
+          sigFields.name_first = parts[0];
+          sigFields.name_last = parts.slice(1).join(" ") || "-";
         }
 
-        const sigString = Object.keys(fields)
+        const sigString = Object.keys(sigFields)
           .sort()
-          .map(k => `${k}=${encodeURIComponent(fields[k]).replace(/%20/g, "+")}`)
+          .map(k => `${k}=${encodeURIComponent(sigFields[k]).replace(/%20/g, "+")}`)
           .join("&");
 
         const signature = crypto.createHash("md5").update(sigString).digest("hex");
-        const params = new URLSearchParams({ ...fields, signature });
+        
+        // Full params include merchant_key but not in signature
+        const allFields = { ...sigFields, merchant_key: MERCHANT_KEY, signature };
+        const params = new URLSearchParams(allFields);
         
         return {
           url: `https://www.payfast.co.za/eng/process?${params.toString()}`,
