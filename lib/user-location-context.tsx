@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+const AS = { getItem: async (k: string) => Platform.OS === "web" ? (typeof window !== "undefined" ? localStorage.getItem(k) : null) : (await import("@react-native-async-storage/async-storage")).default.getItem(k), setItem: async (k: string, v: string) => Platform.OS === "web" ? (typeof window !== "undefined" && localStorage.setItem(k, v)) : (await import("@react-native-async-storage/async-storage")).default.setItem(k, v), removeItem: async (k: string) => Platform.OS === "web" ? (typeof window !== "undefined" && localStorage.removeItem(k)) : (await import("@react-native-async-storage/async-storage")).default.removeItem(k) };
 import { Coordinates, getCityCoordinates } from "./distance";
 
 interface UserLocation extends Coordinates {
@@ -34,8 +35,8 @@ export function UserLocationProvider({ children }: { children: ReactNode }) {
   const loadSavedLocation = async () => {
     try {
       const [locationJson, filterJson] = await Promise.all([
-        AsyncStorage.getItem(USER_LOCATION_KEY),
-        AsyncStorage.getItem(DISTANCE_FILTER_KEY),
+        AS.getItem(USER_LOCATION_KEY),
+        AS.getItem(DISTANCE_FILTER_KEY),
       ]);
 
       if (locationJson) {
@@ -54,7 +55,7 @@ export function UserLocationProvider({ children }: { children: ReactNode }) {
 
   const setUserLocation = async (location: UserLocation) => {
     try {
-      await AsyncStorage.setItem(USER_LOCATION_KEY, JSON.stringify(location));
+      await AS.setItem(USER_LOCATION_KEY, JSON.stringify(location));
       setUserLocationState(location);
     } catch (error) {
       console.error("Error saving user location:", error);
@@ -64,7 +65,7 @@ export function UserLocationProvider({ children }: { children: ReactNode }) {
 
   const clearUserLocation = async () => {
     try {
-      await AsyncStorage.removeItem(USER_LOCATION_KEY);
+      await AS.removeItem(USER_LOCATION_KEY);
       setUserLocationState(null);
     } catch (error) {
       console.error("Error clearing user location:", error);
@@ -74,7 +75,7 @@ export function UserLocationProvider({ children }: { children: ReactNode }) {
 
   const setDistanceFilter = async (distance: number) => {
     try {
-      await AsyncStorage.setItem(DISTANCE_FILTER_KEY, distance.toString());
+      await AS.setItem(DISTANCE_FILTER_KEY, distance.toString());
       setDistanceFilterState(distance);
     } catch (error) {
       console.error("Error saving distance filter:", error);

@@ -1,7 +1,7 @@
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { ScreenContainer } from "@/components/screen-container";
 import { GradientBackground, BackButton } from "@/components/sleepless";
 import { useOrganizer } from "@/lib/organizer-context";
@@ -27,7 +27,7 @@ export default function EventTemplates() {
 
   const loadTemplates = async () => {
     try {
-      const stored = await AsyncStorage.getItem(`templates_${organizer?.id}`);
+      const stored = Platform.OS === "web" ? localStorage.getItem(`templates_${organizer?.id}`) : null;
       if (stored) {
         setTemplates(JSON.parse(stored));
       }
@@ -58,7 +58,7 @@ export default function EventTemplates() {
           onPress: async () => {
             const updated = templates.filter((t) => t.id !== templateId);
             setTemplates(updated);
-            await AsyncStorage.setItem(
+            Platform.OS === "web" && localStorage.setItem(
               `templates_${organizer?.id}`,
               JSON.stringify(updated)
             );

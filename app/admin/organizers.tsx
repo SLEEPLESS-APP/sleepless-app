@@ -4,7 +4,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { GradientBackground } from "@/components/sleepless";
 import { trpc } from "@/lib/trpc";
 import { useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+
 
 export default function ManageOrganizers() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function ManageOrganizers() {
 
   const checkAdminAuth = async () => {
     try {
-      const session = await AsyncStorage.getItem("admin_session");
+      const session = typeof window !== "undefined" ? window.localStorage.getItem("admin_session") : null;
       if (session) {
         const parsed = JSON.parse(session);
         if (parsed.loggedIn) {

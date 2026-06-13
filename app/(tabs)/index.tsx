@@ -1,184 +1,88 @@
-import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import {
-  GradientBackground,
-  SleeplessLogo,
-  Avatar,
-} from "@/components/sleepless";
-import { useAuth } from "@/lib/auth-context";
-import { useProfile } from "@/lib/profile-context";
+import { GradientBackground, SleeplessLogo } from "@/components/sleepless";
+import { LinearGradient } from "expo-linear-gradient";
 
 export default function HomeScreen() {
-  const { user, logout } = useAuth();
-  const { profile } = useProfile();
-
-  const handleSignOut = async () => {
-    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          await logout();
-          router.replace("/login" as any);
-        },
-      },
-    ]);
-  };
-
-  const handleEvents = () => {
-    router.push("/events/provinces" as any);
-  };
-
-  const handleFavorites = () => {
-    router.push("/events/favorites" as any);
-  };
-
-  const handleCalendar = () => {
-    router.push("/events/calendar" as any);
-  };
-
-  const handleBookings = () => {
-    router.push("/events/my-bookings" as any);
-  };
-
-  const handleAbout = () => {
-    router.push("/events/about" as any);
-  };
-
-  const handleSearch = () => {
-    router.push("/events/search" as any);
-  };
-
-  const handleOrganizer = () => {
-    router.push("/organizer" as any);
-  };
-
-  const handleAdmin = () => {
-    router.push("/admin/login" as any);
-  };
-
-  const handleLocation = () => {
-    router.push("/location" as any);
-  };
-
   return (
     <GradientBackground>
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          {/* Sign Out Button */}
-          <Pressable
-            onPress={handleSignOut}
-            style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.signOutText}>Sign out</Text>
-          </Pressable>
 
           {/* Logo */}
           <View style={styles.logoContainer}>
             <SleeplessLogo size="large" />
+            <Text style={styles.tagline}>Discover events happening near you</Text>
           </View>
 
-          {/* Avatar */}
-          <View style={styles.avatarContainer}>
-            <Avatar size={100} editable />
-            <Text style={styles.displayName}>{profile.displayName}</Text>
-          </View>
-
-          {/* Action Buttons */}
+          {/* Buttons */}
           <View style={styles.buttonsContainer}>
-            <Pressable
-              onPress={handleEvents}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-            >
-              <View style={styles.iconCircle}>
-                <MaterialIcons name="event" size={28} color="#ffffff" />
-              </View>
-              <Text style={styles.buttonLabel}>Events</Text>
-            </Pressable>
 
-            <Pressable
-              onPress={handleFavorites}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+            {/* Browse Events */}
+            <TouchableOpacity
+              onPress={() => router.push("/events/provinces" as any)}
+              activeOpacity={0.85}
+              style={styles.buttonWrapper}
             >
-              <View style={styles.iconCircle}>
-                <MaterialIcons name="favorite" size={28} color="#ff6b6b" />
-              </View>
-              <Text style={styles.buttonLabel}>Favorites</Text>
-            </Pressable>
+              <LinearGradient
+                colors={["#ff6b6b", "#ee5a5a"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.button}
+              >
+                <Text style={styles.buttonIcon}>🎉</Text>
+                <View>
+                  <Text style={styles.buttonTitle}>Browse Events</Text>
+                  <Text style={styles.buttonSub}>Find events near you</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-            <Pressable
-              onPress={handleCalendar}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+            {/* Organizer Portal */}
+            <TouchableOpacity
+              onPress={() => router.push("/organizer/login" as any)}
+              activeOpacity={0.85}
+              style={styles.buttonWrapper}
             >
-              <View style={styles.iconCircle}>
-                <MaterialIcons name="calendar-month" size={28} color="#ffffff" />
-              </View>
-              <Text style={styles.buttonLabel}>Calendar</Text>
-            </Pressable>
+              <LinearGradient
+                colors={["#7c3aed", "#6d28d9"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.button}
+              >
+                <Text style={styles.buttonIcon}>🎤</Text>
+                <View>
+                  <Text style={styles.buttonTitle}>Organizer Portal</Text>
+                  <Text style={styles.buttonSub}>Create & manage events</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-            <Pressable
-              onPress={handleBookings}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
+            {/* Admin */}
+            <TouchableOpacity
+              onPress={() => router.push("/admin/login" as any)}
+              activeOpacity={0.85}
+              style={styles.buttonWrapper}
             >
-              <View style={styles.iconCircle}>
-                <MaterialIcons name="confirmation-number" size={28} color="#4ade80" />
-              </View>
-              <Text style={styles.buttonLabel}>Bookings</Text>
-            </Pressable>
+              <LinearGradient
+                colors={["#1e3a5f", "#1e2d4f"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.button}
+              >
+                <Text style={styles.buttonIcon}>🔐</Text>
+                <View>
+                  <Text style={styles.buttonTitle}>Admin</Text>
+                  <Text style={styles.buttonSub}>Platform management</Text>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
 
-            <Pressable
-              onPress={handleSearch}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-            >
-              <View style={styles.iconCircle}>
-                <MaterialIcons name="search" size={28} color="#fbbf24" />
-              </View>
-              <Text style={styles.buttonLabel}>Search</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={handleAbout}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-            >
-              <View style={styles.iconCircle}>
-                <MaterialIcons name="help" size={28} color="#ffffff" />
-              </View>
-              <Text style={styles.buttonLabel}>About</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={handleOrganizer}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-            >
-              <View style={styles.iconCircle}>
-                <MaterialIcons name="business" size={28} color="#ff6b81" />
-              </View>
-              <Text style={styles.buttonLabel}>Organizer</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={handleLocation}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-            >
-              <View style={styles.iconCircle}>
-                <MaterialIcons name="location-on" size={28} color="#38bdf8" />
-              </View>
-              <Text style={styles.buttonLabel}>Location</Text>
-            </Pressable>
-
-            <Pressable
-              onPress={handleAdmin}
-              style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-            >
-              <View style={styles.iconCircle}>
-                <MaterialIcons name="admin-panel-settings" size={28} color="#a78bfa" />
-              </View>
-              <Text style={styles.buttonLabel}>Admin</Text>
-            </Pressable>
           </View>
+
+          <Text style={styles.footer}>sleeplessapp.co.za</Text>
+
         </View>
       </SafeAreaView>
     </GradientBackground>
@@ -186,66 +90,62 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
+  safeArea: { flex: 1 },
   container: {
     flex: 1,
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 40,
     paddingHorizontal: 24,
-  },
-  signOutButton: {
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  signOutText: {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: 14,
   },
   logoContainer: {
     alignItems: "center",
-    marginTop: 32,
+    marginTop: 40,
   },
-  avatarContainer: {
-    alignItems: "center",
-    marginTop: 24,
-  },
-  displayName: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "500",
+  tagline: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 15,
     marginTop: 12,
+    textAlign: "center",
+    letterSpacing: 0.3,
   },
   buttonsContainer: {
+    width: "100%",
+    gap: 16,
+  },
+  buttonWrapper: {
+    width: "100%",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  button: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 20,
-    marginTop: 40,
-    paddingHorizontal: 8,
-  },
-  actionButton: {
     alignItems: "center",
-    width: 65,
+    padding: 20,
+    gap: 16,
   },
-  iconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.5)",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    alignItems: "center",
-    justifyContent: "center",
+  buttonIcon: {
+    fontSize: 32,
   },
-  buttonLabel: {
-    color: "#ffffff",
-    fontSize: 11,
-    marginTop: 6,
-    fontWeight: "500",
-    textAlign: "center",
+  buttonTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  buttonSub: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    marginTop: 2,
+  },
+  footer: {
+    color: "rgba(255,255,255,0.3)",
+    fontSize: 12,
+    letterSpacing: 1,
   },
 });

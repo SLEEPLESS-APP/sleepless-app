@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+const AS = { getItem: async (k: string) => Platform.OS === "web" ? (typeof window !== "undefined" ? localStorage.getItem(k) : null) : (await import("@react-native-async-storage/async-storage")).default.getItem(k), setItem: async (k: string, v: string) => Platform.OS === "web" ? (typeof window !== "undefined" && localStorage.setItem(k, v)) : (await import("@react-native-async-storage/async-storage")).default.setItem(k, v), removeItem: async (k: string) => Platform.OS === "web" ? (typeof window !== "undefined" && localStorage.removeItem(k)) : (await import("@react-native-async-storage/async-storage")).default.removeItem(k) };
 import type { Organizer } from "../drizzle/schema";
 
 interface OrganizerContextType {
@@ -22,7 +23,7 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
 
   const loadOrganizer = async () => {
     try {
-      const stored = await AsyncStorage.getItem("organizer");
+      const stored = await AS.getItem("organizer");
       if (stored) {
         setOrganizerState(JSON.parse(stored));
       }
@@ -36,15 +37,15 @@ export function OrganizerProvider({ children }: { children: React.ReactNode }) {
   const setOrganizer = async (org: Organizer | null) => {
     setOrganizerState(org);
     if (org) {
-      await AsyncStorage.setItem("organizer", JSON.stringify(org));
+      await AS.setItem("organizer", JSON.stringify(org));
     } else {
-      await AsyncStorage.removeItem("organizer");
+      await AS.removeItem("organizer");
     }
   };
 
   const clearOrganizer = async () => {
     setOrganizerState(null);
-    await AsyncStorage.removeItem("organizer");
+    await AS.removeItem("organizer");
   };
 
   return (

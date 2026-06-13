@@ -87,6 +87,7 @@ export default function CreateEvent() {
   const [showProvinceModal, setShowProvinceModal] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
   const [showEventTypeModal, setShowEventTypeModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const uploadImageMutation = trpc.organizer.uploadImage.useMutation();
   const createEventMutation = trpc.organizer.createEvent.useMutation();
@@ -133,6 +134,8 @@ export default function CreateEvent() {
   };
 
   const handleSubmit = async (isDraft: boolean = false) => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     // Validate basic fields
     if (
       !formData.title ||
@@ -172,23 +175,34 @@ export default function CreateEvent() {
       let posterUrl = "https://placehold.co/800x400/1a1a2e/ffffff?text=" + encodeURIComponent(formData.title || "Event");
       
       if (posterImage) {
-        let base64: string;
-        if (Platform.OS === "web") {
-          base64 = posterImage.split(",")[1] ?? posterImage;
-        } else {
-          const FS = await import("expo-file-system/legacy");
-          base64 = await FS.readAsStringAsync(posterImage, {
-            encoding: FS.EncodingType.Base64,
-          });
-        }
-        const fileName = posterImage.split("/").pop() || "event.jpg";
         try {
-          const uploadResult = await uploadImageMutation.mutateAsync({
+          let base64: string;
+          if (Platform.OS === "web") {
+            // Convert blob URL or data URL to base64
+            const response = await fetch(posterImage);
+            const blob = await response.blob();
+            base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                const result = reader.result as string;
+                resolve(result.split(",")[1] ?? result);
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(blob);
+            });
+          } else {
+            const FS = await import("expo-file-system/legacy");
+            base64 = await FS.readAsStringAsync(posterImage, {
+              encoding: FS.EncodingType.Base64,
+            });
+          }
+          const fileName = "event_" + Date.now() + ".jpg";
+          const uploaded = await uploadImageMutation.mutateAsync({
             base64Data: base64,
             fileName,
             contentType: "image/jpeg",
           });
-          posterUrl = uploadResult.url;
+          posterUrl = uploaded.url;
         } catch (uploadErr) {
           console.warn("Image upload failed, using placeholder:", uploadErr);
         }
@@ -259,6 +273,8 @@ export default function CreateEvent() {
     } catch (error) {
       console.error("Error creating event:", error);
       Platform.OS === "web" ? window.alert("Failed to create event. Please try again.") : Alert.alert("Error", "Failed to create event. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -621,15 +637,23 @@ export default function CreateEvent() {
             <TouchableOpacity
               onPress={() => handleSubmit(false)}
               activeOpacity={0.8}
-              style={styles.button}
+              style={[styles.button, isSubmitting && { opacity: 0.7 }]}
+              disabled={isSubmitting}
             >
               <LinearGradient
-                colors={["#ff6b6b", "#ee5a5a", "#dd4a4a"]}
+                colors={isSubmitting ? ["#888", "#777", "#666"] : ["#ff6b6b", "#ee5a5a", "#dd4a4a"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.gradient}
               >
-                <Text style={styles.buttonText}>CREATE EVENT</Text>
+                {isSubmitting ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.buttonText}>SUBMITTING...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.buttonText}>CREATE EVENT</Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
 

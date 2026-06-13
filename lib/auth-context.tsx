@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 interface User {
   id: number;
@@ -21,7 +21,36 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = "@sleepless_auth";
 
-// Inline fetch helpers — avoids circular dependency with trpc client
+// Storage helpers that work on both web and native
+const storage = {
+  getItem: async (key: string): Promise<string | null> => {
+    if (Platform.OS === "web") {
+      if (typeof window === "undefined") return null; // SSR guard
+      return window.localStorage.getItem(key);
+    }
+    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+    return AsyncStorage.getItem(key);
+  },
+  setItem: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === "web") {
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem(key, value);
+      return;
+    }
+    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+    await AsyncStorage.setItem(key, value);
+  },
+  removeItem: async (key: string): Promise<void> => {
+    if (Platform.OS === "web") {
+      if (typeof window === "undefined") return;
+      window.localStorage.removeItem(key);
+      return;
+    }
+    const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+    await AsyncStorage.removeItem(key);
+  },
+};
+
 async function apiPost(path: string, body: object) {
   const { getApiBaseUrl } = await import("@/constants/oauth");
   const res = await fetch(`${getApiBaseUrl()}/api/trpc/${path}`, {
@@ -31,25 +60,34 @@ async function apiPost(path: string, body: object) {
     body: JSON.stringify(body),
   });
   const json = await res.json();
-  // tRPC wraps responses in { result: { data: ... } }
   return json?.result?.data ?? json;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
+  // Mark as mounted after first render to avoid hydration mismatch
   useEffect(() => {
-    AsyncStorage.getItem(AUTH_STORAGE_KEY)
-      .then((stored) => { if (stored) setUser(JSON.parse(stored)); })
+    setMounted(true);
+  }, []);
+
+  // Only load stored auth after component is mounted (client-side only)
+  useEffect(() => {
+    if (!mounted) return;
+    storage.getItem(AUTH_STORAGE_KEY)
+      .then((stored) => {
+        if (stored) setUser(JSON.parse(stored));
+      })
       .catch(console.error)
       .finally(() => setIsLoading(false));
-  }, []);
+  }, [mounted]);
 
   const persist = async (u: User | null) => {
     setUser(u);
-    if (u) await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(u));
-    else await AsyncStorage.removeItem(AUTH_STORAGE_KEY);
+    if (u) await storage.setItem(AUTH_STORAGE_KEY, JSON.stringify(u));
+    else await storage.removeItem(AUTH_STORAGE_KEY);
   };
 
   const login = async (email: string, password: string) => {
@@ -78,14 +116,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Social login — still requires expo-auth-session setup; shows a clear message for now
   const loginWithGoogle = async (): Promise<boolean> => {
-    console.warn("[Auth] Google OAuth not yet configured. Add EXPO_PUBLIC_GOOGLE_CLIENT_ID to enable.");
+    console.warn("[Auth] Google OAuth not yet configured.");
     return false;
   };
 
   const loginWithApple = async (): Promise<boolean> => {
-    console.warn("[Auth] Apple Sign-In not yet configured. Add expo-apple-authentication to enable.");
+    console.warn("[Auth] Apple Sign-In not yet configured.");
     return false;
   };
 

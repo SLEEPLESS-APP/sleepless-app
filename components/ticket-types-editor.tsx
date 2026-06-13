@@ -7,9 +7,9 @@ import {
   TextInput,
   Modal,
   ScrollView,
-  Alert,
+  Platform,
 } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { SvgIcon } from "@/components/sleepless/svg-icons";
 
 export interface TicketTypeData {
   id?: number;
@@ -26,291 +26,160 @@ interface TicketTypesEditorProps {
   disabled?: boolean;
 }
 
-const DEFAULT_TICKET_TYPES: TicketTypeData[] = [
-  { name: "General Admission", description: "Standard entry ticket", price: "", quantity: "", maxPerOrder: "10" },
-];
-
 const PRESET_TICKET_TYPES = [
   { name: "General Admission", description: "Standard entry ticket" },
   { name: "VIP", description: "VIP access with premium benefits" },
   { name: "Early Bird", description: "Discounted early purchase ticket" },
-  { name: "Table (4 pax)", description: "Reserved table for 4 guests with bottle service" },
-  { name: "Table (6 pax)", description: "Reserved table for 6 guests with bottle service" },
-  { name: "Table (10 pax)", description: "Reserved table for 10 guests with premium bottle service" },
+  { name: "Table (4 pax)", description: "Reserved table for 4 guests" },
+  { name: "Table (6 pax)", description: "Reserved table for 6 guests" },
+  { name: "Table (10 pax)", description: "Reserved table for 10 guests" },
   { name: "Couples", description: "Entry for 2 people" },
-  { name: "Group (5+)", description: "Discounted group entry for 5 or more" },
+  { name: "Group (5+)", description: "Discounted group entry for 5+" },
 ];
+
+const EMPTY_FORM: TicketTypeData = {
+  name: "", description: "", price: "", quantity: "", maxPerOrder: "10",
+};
 
 export function TicketTypesEditor({ ticketTypes, onChange, disabled = false }: TicketTypesEditorProps) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState<TicketTypeData>({
-    name: "",
-    description: "",
-    price: "",
-    quantity: "",
-    maxPerOrder: "10",
-  });
+  const [editForm, setEditForm] = useState<TicketTypeData>(EMPTY_FORM);
 
-  const handleAddTicketType = (preset?: { name: string; description: string }) => {
-    if (preset) {
-      const newTicketType: TicketTypeData = {
-        name: preset.name,
-        description: preset.description,
-        price: "",
-        quantity: "",
-        maxPerOrder: "10",
-      };
-      onChange([...ticketTypes, newTicketType]);
-      setShowAddModal(false);
-    } else {
-      // Add custom ticket type
-      setEditForm({
-        name: "",
-        description: "",
-        price: "",
-        quantity: "",
-        maxPerOrder: "10",
-      });
-      setEditingIndex(ticketTypes.length);
-      setShowAddModal(false);
-    }
-  };
-
-  const handleEditTicketType = (index: number) => {
-    setEditForm({ ...ticketTypes[index] });
-    setEditingIndex(index);
-  };
-
-  const handleSaveEdit = () => {
-    if (!editForm.name.trim()) {
-      Alert.alert("Error", "Ticket type name is required");
-      return;
-    }
-    if (!editForm.price || parseFloat(editForm.price) < 0) {
-      Alert.alert("Error", "Please enter a valid price");
-      return;
-    }
-    if (!editForm.quantity || parseInt(editForm.quantity) < 1) {
-      Alert.alert("Error", "Please enter a valid quantity (at least 1)");
-      return;
-    }
-
-    const newTicketTypes = [...ticketTypes];
-    if (editingIndex !== null) {
-      if (editingIndex >= ticketTypes.length) {
-        // Adding new
-        newTicketTypes.push(editForm);
-      } else {
-        // Editing existing
-        newTicketTypes[editingIndex] = editForm;
-      }
-    }
-    onChange(newTicketTypes);
+  const openAdd = () => {
     setEditingIndex(null);
+    setEditForm(EMPTY_FORM);
+    setShowAddModal(true);
   };
 
-  const handleDeleteTicketType = (index: number) => {
-    Alert.alert(
-      "Delete Ticket Type",
-      `Are you sure you want to delete "${ticketTypes[index].name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            const newTicketTypes = ticketTypes.filter((_, i) => i !== index);
-            onChange(newTicketTypes);
-          },
-        },
-      ]
-    );
+  const openEdit = (index: number) => {
+    setEditingIndex(index);
+    setEditForm({ ...ticketTypes[index] });
+    setShowAddModal(true);
   };
 
-  const getTotalTickets = () => {
-    return ticketTypes.reduce((sum, tt) => sum + (parseInt(tt.quantity) || 0), 0);
+  const saveTicket = () => {
+    if (!editForm.name || !editForm.price || !editForm.quantity) {
+      if (Platform.OS === "web") {
+        window.alert("Please fill in name, price and quantity");
+      }
+      return;
+    }
+    const updated = [...ticketTypes];
+    if (editingIndex !== null) {
+      updated[editingIndex] = editForm;
+    } else {
+      updated.push(editForm);
+    }
+    onChange(updated);
+    setShowAddModal(false);
+  };
+
+  const removeTicket = (index: number) => {
+    if (Platform.OS === "web") {
+      if (!window.confirm(`Remove "${ticketTypes[index].name}"?`)) return;
+    }
+    onChange(ticketTypes.filter((_, i) => i !== index));
+  };
+
+  const selectPreset = (preset: typeof PRESET_TICKET_TYPES[0]) => {
+    setEditForm({ ...editForm, name: preset.name, description: preset.description });
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Ticket Types</Text>
-        <Text style={styles.subtitle}>
-          {ticketTypes.length} type{ticketTypes.length !== 1 ? "s" : ""} • {getTotalTickets()} total tickets
-        </Text>
-      </View>
+      <Text style={styles.label}>Ticket Types</Text>
 
-      {/* Ticket Types List */}
-      {ticketTypes.map((ticketType, index) => (
-        <View key={index} style={styles.ticketTypeCard}>
-          <View style={styles.ticketTypeHeader}>
-            <View style={styles.ticketTypeInfo}>
-              <Text style={styles.ticketTypeName}>{ticketType.name}</Text>
-              {ticketType.description && (
-                <Text style={styles.ticketTypeDescription}>{ticketType.description}</Text>
-              )}
-            </View>
-            {!disabled && (
-              <View style={styles.ticketTypeActions}>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleEditTicketType(index)}
-                >
-                  <MaterialIcons name="edit" size={18} color="#38bdf8" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.actionButton}
-                  onPress={() => handleDeleteTicketType(index)}
-                >
-                  <MaterialIcons name="delete" size={18} color="#ff6b6b" />
-                </TouchableOpacity>
-              </View>
-            )}
+      {ticketTypes.map((tt, index) => (
+        <View key={index} style={styles.ticketCard}>
+          <View style={styles.ticketInfo}>
+            <Text style={styles.ticketName}>{tt.name}</Text>
+            <Text style={styles.ticketMeta}>R{tt.price} · {tt.quantity} tickets</Text>
           </View>
-          <View style={styles.ticketTypeDetails}>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Price</Text>
-              <Text style={styles.detailValue}>
-                {ticketType.price ? `R${ticketType.price}` : "Not set"}
-              </Text>
+          {!disabled && (
+            <View style={styles.ticketActions}>
+              <TouchableOpacity onPress={() => openEdit(index)} style={styles.iconBtn}>
+                <SvgIcon name="settings" size={18} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => removeTicket(index)} style={styles.iconBtn}>
+                <Text style={styles.removeText}>✕</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Quantity</Text>
-              <Text style={styles.detailValue}>
-                {ticketType.quantity || "Not set"}
-              </Text>
-            </View>
-            <View style={styles.detailItem}>
-              <Text style={styles.detailLabel}>Max/Order</Text>
-              <Text style={styles.detailValue}>{ticketType.maxPerOrder || "10"}</Text>
-            </View>
-          </View>
+          )}
         </View>
       ))}
 
-      {/* Add Button */}
       {!disabled && (
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddModal(true)}
-        >
-          <MaterialIcons name="add" size={24} color="#fff" />
-          <Text style={styles.addButtonText}>Add Ticket Type</Text>
+        <TouchableOpacity style={styles.addButton} onPress={openAdd}>
+          <Text style={styles.addButtonText}>+ Add Ticket Type</Text>
         </TouchableOpacity>
       )}
 
-      {/* Add Modal */}
-      <Modal
-        visible={showAddModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowAddModal(false)}
-      >
+      <Modal visible={showAddModal} transparent animationType="slide" onRequestClose={() => setShowAddModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Ticket Type</Text>
+              <Text style={styles.modalTitle}>{editingIndex !== null ? "Edit" : "Add"} Ticket Type</Text>
               <TouchableOpacity onPress={() => setShowAddModal(false)}>
-                <MaterialIcons name="close" size={24} color="#fff" />
+                <Text style={styles.closeBtn}>✕</Text>
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.modalScroll}>
-              <Text style={styles.presetLabel}>Choose a preset:</Text>
-              {PRESET_TICKET_TYPES.map((preset, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.presetItem}
-                  onPress={() => handleAddTicketType(preset)}
-                >
-                  <Text style={styles.presetName}>{preset.name}</Text>
-                  <Text style={styles.presetDescription}>{preset.description}</Text>
-                </TouchableOpacity>
-              ))}
-              <TouchableOpacity
-                style={[styles.presetItem, styles.customPreset]}
-                onPress={() => handleAddTicketType()}
-              >
-                <MaterialIcons name="add" size={20} color="#38bdf8" />
-                <Text style={[styles.presetName, { color: "#38bdf8" }]}>Custom Ticket Type</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
-      {/* Edit Modal */}
-      <Modal
-        visible={editingIndex !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setEditingIndex(null)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {editingIndex !== null && editingIndex >= ticketTypes.length
-                  ? "Add Ticket Type"
-                  : "Edit Ticket Type"}
-              </Text>
-              <TouchableOpacity onPress={() => setEditingIndex(null)}>
-                <MaterialIcons name="close" size={24} color="#fff" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalScroll}>
-              <Text style={styles.inputLabel}>Name *</Text>
+            <ScrollView>
+              {editingIndex === null && (
+                <>
+                  <Text style={styles.sectionLabel}>Quick Select</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.presets}>
+                    {PRESET_TICKET_TYPES.map((p) => (
+                      <TouchableOpacity key={p.name} style={styles.presetChip} onPress={() => selectPreset(p)}>
+                        <Text style={styles.presetText}>{p.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </>
+              )}
+
               <TextInput
                 style={styles.input}
+                placeholder="Ticket Name *"
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 value={editForm.name}
-                onChangeText={(text) => setEditForm({ ...editForm, name: text })}
-                placeholder="e.g., General Admission, VIP, Table"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                onChangeText={(v) => setEditForm({ ...editForm, name: v })}
               />
-
-              <Text style={styles.inputLabel}>Description</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={styles.input}
+                placeholder="Description"
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 value={editForm.description}
-                onChangeText={(text) => setEditForm({ ...editForm, description: text })}
-                placeholder="What's included with this ticket?"
-                placeholderTextColor="rgba(255,255,255,0.4)"
-                multiline
-                numberOfLines={2}
+                onChangeText={(v) => setEditForm({ ...editForm, description: v })}
               />
-
-              <Text style={styles.inputLabel}>Price (ZAR) *</Text>
               <TextInput
                 style={styles.input}
+                placeholder="Price (ZAR) *"
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 value={editForm.price}
-                onChangeText={(text) => setEditForm({ ...editForm, price: text.replace(/[^0-9.]/g, "") })}
-                placeholder="0"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                onChangeText={(v) => setEditForm({ ...editForm, price: v })}
                 keyboardType="numeric"
               />
-
-              <Text style={styles.inputLabel}>Quantity Available *</Text>
               <TextInput
                 style={styles.input}
+                placeholder="Quantity Available *"
+                placeholderTextColor="rgba(255,255,255,0.4)"
                 value={editForm.quantity}
-                onChangeText={(text) => setEditForm({ ...editForm, quantity: text.replace(/[^0-9]/g, "") })}
-                placeholder="100"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                onChangeText={(v) => setEditForm({ ...editForm, quantity: v })}
                 keyboardType="numeric"
               />
-
-              <Text style={styles.inputLabel}>Max Per Order</Text>
               <TextInput
                 style={styles.input}
-                value={editForm.maxPerOrder}
-                onChangeText={(text) => setEditForm({ ...editForm, maxPerOrder: text.replace(/[^0-9]/g, "") })}
-                placeholder="10"
+                placeholder="Max Per Order (default: 10)"
                 placeholderTextColor="rgba(255,255,255,0.4)"
+                value={editForm.maxPerOrder}
+                onChangeText={(v) => setEditForm({ ...editForm, maxPerOrder: v })}
                 keyboardType="numeric"
               />
 
-              <TouchableOpacity style={styles.saveButton} onPress={handleSaveEdit}>
-                <Text style={styles.saveButtonText}>Save Ticket Type</Text>
+              <TouchableOpacity style={styles.saveBtn} onPress={saveTicket}>
+                <Text style={styles.saveBtnText}>Save Ticket Type</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -321,183 +190,27 @@ export function TicketTypesEditor({ ticketTypes, onChange, disabled = false }: T
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginVertical: 8,
-  },
-  header: {
-    marginBottom: 12,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  subtitle: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.6)",
-    marginTop: 4,
-  },
-  ticketTypeCard: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
-  },
-  ticketTypeHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  ticketTypeInfo: {
-    flex: 1,
-  },
-  ticketTypeName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  ticketTypeDescription: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.6)",
-    marginTop: 4,
-  },
-  ticketTypeActions: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  actionButton: {
-    padding: 8,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 8,
-  },
-  ticketTypeDetails: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.1)",
-  },
-  detailItem: {
-    alignItems: "center",
-  },
-  detailLabel: {
-    fontSize: 11,
-    color: "rgba(255,255,255,0.5)",
-    marginBottom: 4,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ff6b6b",
-  },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.2)",
-    borderStyle: "dashed",
-  },
-  addButtonText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "500",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.8)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "#1a1a2e",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "80%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.1)",
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  modalScroll: {
-    padding: 20,
-  },
-  presetLabel: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.6)",
-    marginBottom: 12,
-  },
-  presetItem: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  customPreset: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "rgba(56,189,248,0.3)",
-    borderStyle: "dashed",
-  },
-  presetName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#fff",
-  },
-  presetDescription: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.6)",
-    marginTop: 4,
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.7)",
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  input: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    padding: 16,
-    color: "#fff",
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: "top",
-  },
-  saveButton: {
-    backgroundColor: "#ff6b6b",
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 24,
-    marginBottom: 40,
-  },
-  saveButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
+  container: { marginVertical: 8 },
+  label: { color: "rgba(255,255,255,0.7)", fontSize: 13, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 },
+  ticketCard: { flexDirection: "row", alignItems: "center", backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
+  ticketInfo: { flex: 1 },
+  ticketName: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  ticketMeta: { color: "rgba(255,255,255,0.5)", fontSize: 13, marginTop: 2 },
+  ticketActions: { flexDirection: "row", gap: 8 },
+  iconBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  removeText: { color: "#ef4444", fontSize: 16, fontWeight: "700" },
+  addButton: { borderWidth: 1, borderColor: "rgba(107,33,168,0.5)", borderRadius: 12, borderStyle: "dashed", padding: 14, alignItems: "center", marginTop: 4 },
+  addButtonText: { color: "#9333ea", fontSize: 14, fontWeight: "600" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "flex-end" },
+  modalContent: { backgroundColor: "#1a1a35", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: "85%" },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  modalTitle: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  closeBtn: { color: "rgba(255,255,255,0.5)", fontSize: 20 },
+  sectionLabel: { color: "rgba(255,255,255,0.5)", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 },
+  presets: { marginBottom: 16 },
+  presetChip: { backgroundColor: "rgba(107,33,168,0.2)", borderWidth: 1, borderColor: "rgba(107,33,168,0.4)", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },
+  presetText: { color: "#a78bfa", fontSize: 13 },
+  input: { backgroundColor: "rgba(255,255,255,0.08)", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)", borderRadius: 12, padding: 14, color: "#fff", fontSize: 15, marginBottom: 12 },
+  saveBtn: { backgroundColor: "#6B21A8", borderRadius: 12, padding: 16, alignItems: "center", marginTop: 8 },
+  saveBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });
-
-export default TicketTypesEditor;

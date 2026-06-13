@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, FlatList } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, FlatList, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { useState, useEffect } from "react";
@@ -59,27 +59,22 @@ export default function MyEvents() {
 
   const deleteEventMutation = trpc.organizer.deleteEvent.useMutation();
 
-  const handleCancelEvent = (eventId: number, eventTitle: string) => {
-    Alert.alert(
-      "Cancel Event",
-      `Are you sure you want to cancel "${eventTitle}"? This action cannot be undone.`,
-      [
-        { text: "No", style: "cancel" },
-        {
-          text: "Yes, Cancel",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await deleteEventMutation.mutateAsync({ eventId, organizerId: organizer!.id });
-              Alert.alert("Success", "Event has been cancelled");
-              refetch();
-            } catch {
-              Alert.alert("Error", "Failed to cancel event. Please try again.");
-            }
-          },
-        },
-      ]
-    );
+  const handleCancelEvent = async (eventId: number, eventTitle: string) => {
+    const confirmed = Platform.OS === "web" 
+      ? window.confirm(`Are you sure you want to cancel "${eventTitle}"? This action cannot be undone.`)
+      : await new Promise(resolve => Alert.alert(
+          "Cancel Event",
+          `Are you sure you want to cancel "${eventTitle}"? This action cannot be undone.`,
+          [{ text: "No", onPress: () => resolve(false) }, { text: "Yes, Cancel", style: "destructive", onPress: () => resolve(true) }]
+        ));
+    if (!confirmed) return;
+    try {
+      await deleteEventMutation.mutateAsync({ eventId, organizerId: organizer!.id });
+      Platform.OS === "web" ? window.alert("Event has been cancelled") : Alert.alert("Success", "Event has been cancelled");
+      refetch();
+    } catch {
+      Platform.OS === "web" ? window.alert("Failed to cancel event. Please try again.") : Alert.alert("Error", "Failed to cancel event. Please try again.");
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -107,33 +102,28 @@ export default function MyEvents() {
     }
   };
 
-  const handleBulkCancel = () => {
-    Alert.alert(
-      "Cancel Events",
-      `Are you sure you want to cancel ${selectedEvents.length} event(s)?`,
-      [
-        { text: "No", style: "cancel" },
-        {
-          text: "Yes, Cancel All",
-          style: "destructive",
-          onPress: async () => {
-              try {
-                await Promise.all(
-                  selectedEvents.map((eventId) =>
-                    deleteEventMutation.mutateAsync({ eventId, organizerId: organizer!.id })
-                  )
-                );
-                Alert.alert("Success", `${selectedEvents.length} event(s) cancelled`);
-              } catch {
-                Alert.alert("Error", "Some events could not be cancelled.");
-              }
-              setSelectedEvents([]);
-              setSelectionMode(false);
-              refetch();
-          },
-        },
-      ]
-    );
+  const handleBulkCancel = async () => {
+    const confirmed = Platform.OS === "web"
+      ? window.confirm(`Are you sure you want to cancel ${selectedEvents.length} event(s)?`)
+      : await new Promise(resolve => Alert.alert(
+          "Cancel Events",
+          `Are you sure you want to cancel ${selectedEvents.length} event(s)?`,
+          [{ text: "No", onPress: () => resolve(false) }, { text: "Yes, Cancel All", style: "destructive", onPress: () => resolve(true) }]
+        ));
+    if (!confirmed) return;
+    try {
+      await Promise.all(
+        selectedEvents.map((eventId) =>
+          deleteEventMutation.mutateAsync({ eventId, organizerId: organizer!.id })
+        )
+      );
+      Platform.OS === "web" ? window.alert(`${selectedEvents.length} event(s) cancelled`) : Alert.alert("Success", `${selectedEvents.length} event(s) cancelled`);
+    } catch {
+      Platform.OS === "web" ? window.alert("Some events could not be cancelled.") : Alert.alert("Error", "Some events could not be cancelled.");
+    }
+    setSelectedEvents([]);
+    setSelectionMode(false);
+    refetch();
   };
 
   const renderEvent = ({ item }: { item: any }) => (
@@ -179,15 +169,15 @@ export default function MyEvents() {
             <Text style={styles.actionButtonText}>✏️ Edit</Text>
           </TouchableOpacity>
 
-          {item.status === "approved" && (
-            <TouchableOpacity
+          <TouchableOpacity
               onPress={() => handleCancelEvent(item.id, item.title)}
               activeOpacity={0.8}
               style={[styles.actionButton, styles.cancelButton]}
             >
-              <Text style={styles.actionButtonText}>❌ Cancel</Text>
+              <Text style={styles.actionButtonText}>
+                {item.status === "approved" ? "❌ Cancel" : "🗑️ Delete"}
+              </Text>
             </TouchableOpacity>
-          )}
         </View>
       </View>
       {selectionMode && (

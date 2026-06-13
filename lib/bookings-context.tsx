@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
+const AS = { getItem: async (k: string) => Platform.OS === "web" ? (typeof window !== "undefined" ? localStorage.getItem(k) : null) : (await import("@react-native-async-storage/async-storage")).default.getItem(k), setItem: async (k: string, v: string) => Platform.OS === "web" ? (typeof window !== "undefined" && localStorage.setItem(k, v)) : (await import("@react-native-async-storage/async-storage")).default.setItem(k, v), removeItem: async (k: string) => Platform.OS === "web" ? (typeof window !== "undefined" && localStorage.removeItem(k)) : (await import("@react-native-async-storage/async-storage")).default.removeItem(k) };
 
 const BOOKINGS_KEY = "sleepless_bookings";
 
@@ -48,7 +49,7 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
 
   const loadBookings = async () => {
     try {
-      const stored = await AsyncStorage.getItem(BOOKINGS_KEY);
+      const stored = await AS.getItem(BOOKINGS_KEY);
       if (stored) {
         setBookings(JSON.parse(stored));
       }
@@ -59,7 +60,7 @@ export function BookingsProvider({ children }: { children: ReactNode }) {
 
   const saveBookings = async (newBookings: Booking[]) => {
     try {
-      await AsyncStorage.setItem(BOOKINGS_KEY, JSON.stringify(newBookings));
+      await AS.setItem(BOOKINGS_KEY, JSON.stringify(newBookings));
     } catch (error) {
       console.error("Error saving bookings:", error);
     }

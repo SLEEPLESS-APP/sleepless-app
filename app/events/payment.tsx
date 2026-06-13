@@ -35,6 +35,7 @@ export default function PaymentScreen() {
   const { addBooking } = useBookings();
   const { user } = useAuth();
   const createBookingMutation = trpc.bookings.create.useMutation();
+  const payfastUrlMutation = trpc.payfast.getUrl.useMutation();
 
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>("card");
   const [cardNumber, setCardNumber] = useState("");
@@ -71,8 +72,8 @@ export default function PaymentScreen() {
     );
   }
 
-  // DB prices are in cents
-  const unitPriceCents = event.price;
+  // DB prices are in Rands
+  const unitPriceCents = event.price * 100;
   const totalAmount = unitPriceCents * qty;
   const serviceFee = Math.round(totalAmount * 0.05);
   const grandTotal = totalAmount + serviceFee;
@@ -86,24 +87,7 @@ export default function PaymentScreen() {
   };
 
   const handlePayment = async () => {
-    if (selectedMethod === "card") {
-      if (!PaymentService.validateCardNumber(cardNumber)) {
-        Alert.alert("Invalid Card", "Please enter a valid 16-digit card number.");
-        return;
-      }
-      if (!PaymentService.validateExpiry(expiry)) {
-        Alert.alert("Invalid Expiry", "Please enter a valid expiry date (MM/YY).");
-        return;
-      }
-      if (!PaymentService.validateCVV(cvv)) {
-        Alert.alert("Invalid CVV", "Please enter a valid 3 or 4 digit CVV.");
-        return;
-      }
-      if (!cardName.trim()) {
-        Alert.alert("Missing Name", "Please enter the cardholder name.");
-        return;
-      }
-    }
+    // PayFast handles all payment validation
 
     setIsProcessing(true);
 
@@ -112,26 +96,21 @@ export default function PaymentScreen() {
     }
 
     try {
-      const paymentDetails = {
+      const transactionId = `SLP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2,8).toUpperCase()}`;
+      
+      const { url } = await payfastUrlMutation.mutateAsync({
         eventId: event.id,
         eventName: event.title,
         quantity: qty,
-        unitPrice: event.price,
-        totalAmount: grandTotal,
-      };
+        totalAmount: grandTotal / 100,
+        transactionId,
+      });
 
-      let paymentResult;
-      switch (selectedMethod) {
-        case "card":
-          paymentResult = await PaymentService.processCardPayment(paymentDetails);
-          break;
-        case "eft":
-          paymentResult = await PaymentService.processEFTPayment(paymentDetails);
-          break;
-        case "wallet":
-          paymentResult = await PaymentService.processWalletPayment(paymentDetails);
-          break;
-      }
+      const paymentResult = { success: true, transactionId };
+      
+      // Redirect to PayFast
+      window.location.href = url;
+      return;
 
       if (!paymentResult.success || !paymentResult.transactionId) {
         Alert.alert("Payment Failed", paymentResult.error || "Please try again.");
@@ -219,52 +198,32 @@ export default function PaymentScreen() {
               <Text style={styles.summaryTitle}>Order Summary</Text>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>{event.title}</Text>
-                <Text style={styles.summaryValue}>`R${(event.price/100).toFixed(0)} × ${qty}`</Text>
+                <Text style={styles.summaryValue}>R{event.price} × {qty}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>`R${(totalAmount/100).toFixed(0)}`</Text>
+                <Text style={styles.summaryValue}>R{(totalAmount/100).toFixed(0)}</Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Service Fee (5%)</Text>
-                <Text style={styles.summaryValue}>`R${(serviceFee/100).toFixed(0)}`</Text>
+                <Text style={styles.summaryValue}>R{(serviceFee/100).toFixed(0)}</Text>
               </View>
               <View style={styles.divider} />
               <View style={styles.summaryRow}>
                 <Text style={styles.totalLabel}>Total</Text>
-                <Text style={styles.totalValue}>`R${(grandTotal/100).toFixed(0)}`</Text>
+                <Text style={styles.totalValue}>R{(grandTotal/100).toFixed(0)}</Text>
               </View>
             </View>
 
-            {/* Payment Methods */}
+            {/* Payment Method - PayFast only */}
             <Text style={styles.sectionTitle}>Payment Method</Text>
-            <View style={styles.methodsContainer}>
-              {PAYMENT_METHODS.map((method) => (
-                <Pressable
-                  key={method.id}
-                  onPress={() => handleMethodSelect(method.id)}
-                  style={[
-                    styles.methodCard,
-                    selectedMethod === method.id && styles.methodCardSelected,
-                  ]}
-                >
-                  <MaterialIcons
-                    name={method.icon as any}
-                    size={24}
-                    color={selectedMethod === method.id ? "#ff6b6b" : "#ffffff"}
-                  />
-                  <View style={styles.methodInfo}>
-                    <Text style={styles.methodName}>{method.name}</Text>
-                    <Text style={styles.methodDesc}>{method.description}</Text>
-                  </View>
-                  <View style={[
-                    styles.radioOuter,
-                    selectedMethod === method.id && styles.radioOuterSelected,
-                  ]}>
-                    {selectedMethod === method.id && <View style={styles.radioInner} />}
-                  </View>
-                </Pressable>
-              ))}
+            <View style={[styles.methodCard, styles.methodCardSelected]}>
+              <MaterialIcons name="lock" size={24} color="#ff6b6b" />
+              <View style={styles.methodInfo}>
+                <Text style={styles.methodName}>PayFast</Text>
+                <Text style={styles.methodDesc}>Card, EFT, SnapScan & more</Text>
+              </View>
+              <MaterialIcons name="check-circle" size={20} color="#ff6b6b" />
             </View>
 
             {/* Card Form (only show for card payment) */}
@@ -363,7 +322,7 @@ export default function PaymentScreen() {
                 </View>
               ) : (
                 <GlassButton
-                  title={`Pay R${grandTotal}`}
+                  title={`Pay R${(grandTotal/100).toFixed(0)}`}
                   onPress={handlePayment}
                   variant="primary"
                 />
