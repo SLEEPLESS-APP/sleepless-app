@@ -1594,6 +1594,12 @@ export async function runVerificationMigration(): Promise<void> {
       }
     } catch (e: any) { console.error("[Migration] organizers:", e?.message); }
 
+    // bookings check-in columns
+    try {
+      await pool.query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "checkedIn" INTEGER DEFAULT 0`);
+      await pool.query(`ALTER TABLE bookings ADD COLUMN IF NOT EXISTS "checkedInAt" TIMESTAMP`);
+    } catch (e: any) { console.error("[Migration] bookings checkin:", e?.message); }
+
     console.log("[Migration] Verification columns ensured");
   } catch (err: any) {
     console.error("[Migration] Failed:", err?.message ?? err);
@@ -1649,5 +1655,48 @@ export async function verifyUserEmail(token: string): Promise<boolean> {
     return false;
   } finally {
     await pool.end().catch(() => {});
+  }
+}
+
+
+/**
+ * Gate scanner — validate a ticket QR payload and check it in.
+ * Returns the booking details plus a status: valid | already_used | not_found | wrong_event.
+ */
+export async function validateTicketCheckIn(
+  transactionId: string,
+  organizerId: number
+): Promise<{
+  status: "valid" | "already_used" | "not_found" | "wrong_event";
+  booking?: any;
+  eventTitle?: string;
+}> {
+  const db = await getDb();
+  if (!db) return { status: "not_found" };
+  try {
+    const rows = await db.select().from(bookings).where(eq(bookings.transactionId, transactionId)).limit(1);
+    if (rows.length === 0) return { status: "not_found" };
+    const booking = rows[0];
+
+    // Verify this booking's event belongs to the scanning organizer
+    const eventRows = await db.select().from(events).where(eq(events.id, booking.eventId)).limit(1);
+    const event = eventRows[0];
+    if (!event || event.organizerId !== organizerId) {
+      return { status: "wrong_event", booking, eventTitle: event?.title };
+    }
+
+    if ((booking as any).checkedIn === 1) {
+      return { status: "already_used", booking, eventTitle: event.title };
+    }
+
+    // Mark as checked in
+    await db.update(bookings)
+      .set({ checkedIn: 1, checkedInAt: new Date() } as any)
+      .where(eq(bookings.id, booking.id));
+
+    return { status: "valid", booking, eventTitle: event.title };
+  } catch (err) {
+    console.error("[Database] validateTicketCheckIn error:", err);
+    return { status: "not_found" };
   }
 }

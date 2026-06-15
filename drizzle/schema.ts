@@ -97,6 +97,8 @@ export const bookings = pgTable("bookings", {
   transactionId: varchar("transactionId", { length: 255 }).notNull(),
   qrCode: text("qrCode").notNull(),
   status: bookingStatusEnum("status").default("confirmed").notNull(),
+  checkedIn: integer("checkedIn").default(0).notNull(),
+  checkedInAt: timestamp("checkedInAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });

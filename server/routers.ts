@@ -5,7 +5,7 @@ import { getDb } from "./db.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { setOrganizerVerificationToken, verifyOrganizerEmail, verifyUserEmail, getOrganizerStats, getOrganizerEvents, getEventBookings, getPendingEvents, approveEvent, rejectEvent, getOrganizerAnalytics, createOrganizer, getOrganizerByEmail, createEvent, updateEvent, getAdminMetrics, getAuditLog, logAdminAction, loginOrganizer, updateOrganizerPassword, createPasswordResetToken, getPasswordResetToken, markTokenAsUsed, getEventById, getPendingOrganizers, approveOrganizer, rejectOrganizer, getTicketTypesByEventId, createTicketTypes, updateTicketType, deleteTicketType, deleteTicketTypesByEventId, checkTicketTypeAvailability, incrementTicketTypeSold, getOrganizerByEventId, createBooking, getBookingsByUserId, loginAdmin, seedAdminAccount, registerUser, loginUser, deleteEvent, updateOrganizerProfile } from "./db.js";
+import { validateTicketCheckIn, setOrganizerVerificationToken, verifyOrganizerEmail, verifyUserEmail, getOrganizerStats, getOrganizerEvents, getEventBookings, getPendingEvents, approveEvent, rejectEvent, getOrganizerAnalytics, createOrganizer, getOrganizerByEmail, createEvent, updateEvent, getAdminMetrics, getAuditLog, logAdminAction, loginOrganizer, updateOrganizerPassword, createPasswordResetToken, getPasswordResetToken, markTokenAsUsed, getEventById, getPendingOrganizers, approveOrganizer, rejectOrganizer, getTicketTypesByEventId, createTicketTypes, updateTicketType, deleteTicketType, deleteTicketTypesByEventId, checkTicketTypeAvailability, incrementTicketTypeSold, getOrganizerByEventId, createBooking, getBookingsByUserId, loginAdmin, seedAdminAccount, registerUser, loginUser, deleteEvent, updateOrganizerProfile } from "./db.js";
 import { checkDuplicateEvent } from "./checkDuplicate.js";
 import { sendEventApprovalEmail, sendEventRejectionEmail, sendEmail, sendBookingConfirmationEmail } from "./email.js";
 import { storagePut } from "./storage.js";
@@ -78,6 +78,14 @@ export const appRouter = router({
   }),
 
   // Organizer routes
+  scanner: router({
+    validateTicket: publicProcedure
+      .input(z.object({ transactionId: z.string(), organizerId: z.number() }))
+      .mutation(async ({ input }) => {
+        return await validateTicketCheckIn(input.transactionId, input.organizerId);
+      }),
+  }),
+
   verify: router({
     email: publicProcedure
       .input(z.object({ token: z.string(), type: z.enum(["organizer", "user"]) }))
