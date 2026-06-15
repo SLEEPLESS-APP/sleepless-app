@@ -79,6 +79,14 @@ export const appRouter = router({
 
   // Organizer routes
   verify: router({
+    emailConfig: publicProcedure
+      .query(async () => {
+        return {
+          provider: process.env.EMAIL_PROVIDER ?? "not set (defaults to console)",
+          hasSendgridKey: !!process.env.SENDGRID_API_KEY,
+          sendgridKeyPrefix: (process.env.SENDGRID_API_KEY ?? "").slice(0, 5),
+        };
+      }),
     email: publicProcedure
       .input(z.object({ token: z.string(), type: z.enum(["organizer", "user"]) }))
       .mutation(async ({ input }) => {
