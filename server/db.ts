@@ -1453,6 +1453,7 @@ export async function registerUser(data: {
   username: string;
   email: string;
   password: string;
+  verificationToken?: string;
 }): Promise<{ id: number; username: string; email: string } | { error: string }> {
   try {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
@@ -1462,6 +1463,8 @@ export async function registerUser(data: {
         username VARCHAR(100) NOT NULL,
         email VARCHAR(320) NOT NULL UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
+        email_verified INTEGER DEFAULT 0,
+        verification_token VARCHAR(128),
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
@@ -1469,8 +1472,8 @@ export async function registerUser(data: {
     if (existing.rows.length > 0) return { error: "An account with this email already exists" };
     const hash = await hashPassword(data.password);
     await pool.query(
-      "INSERT INTO app_users (username, email, password_hash) VALUES ($1, $2, $3)",
-      [data.username, data.email, hash]
+      "INSERT INTO app_users (username, email, password_hash, verification_token) VALUES ($1, $2, $3, $4)",
+      [data.username, data.email, hash, data.verificationToken ?? null]
     );
     const res = await pool.query("SELECT id, username, email FROM app_users WHERE email = $1 LIMIT 1", [data.email]);
     const user = res.rows[0];
@@ -1489,12 +1492,13 @@ export async function loginUser(
   try {
     const pool = new Pool({ connectionString: process.env.DATABASE_URL });
     const res = await pool.query(
-      "SELECT id, username, email, password_hash FROM app_users WHERE email = $1 LIMIT 1", [email]
+      "SELECT id, username, email, password_hash, email_verified FROM app_users WHERE email = $1 LIMIT 1", [email]
     );
     const row = res.rows[0];
     if (!row) return null;
     const match = await bcrypt.compare(password, row.password_hash);
     if (!match) return null;
+    if (row.email_verified === 0) return { error: "unverified" } as any;
     return { id: row.id, username: row.username, email: row.email };
   } catch (err) {
     console.error("[Database] loginUser error:", err);

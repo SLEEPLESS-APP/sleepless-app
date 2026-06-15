@@ -79,34 +79,6 @@ export const appRouter = router({
 
   // Organizer routes
   verify: router({
-    emailConfig: publicProcedure
-      .query(async () => {
-        return {
-          provider: process.env.EMAIL_PROVIDER ?? "not set (defaults to console)",
-          hasSendgridKey: !!process.env.SENDGRID_API_KEY,
-          sendgridKeyPrefix: (process.env.SENDGRID_API_KEY ?? "").slice(0, 5),
-        };
-      }),
-    testEmail: publicProcedure
-      .input(z.object({ to: z.string().email() }))
-      .mutation(async ({ input }) => {
-        try {
-          const apiKey = process.env.SENDGRID_API_KEY;
-          if (!apiKey) return { success: false, error: "No API key" };
-          const sgMail = await import("@sendgrid/mail" as any);
-          sgMail.default.setApiKey(apiKey);
-          await sgMail.default.send({
-            from: "admin@sleeplessapp.co.za",
-            to: input.to,
-            subject: "Sleepless Test Email",
-            html: "<p>This is a test email from Sleepless.</p>",
-          });
-          return { success: true, error: null };
-        } catch (err: any) {
-          const detail = err?.response?.body?.errors ?? err?.message ?? String(err);
-          return { success: false, error: JSON.stringify(detail) };
-        }
-      }),
     email: publicProcedure
       .input(z.object({ token: z.string(), type: z.enum(["organizer", "user"]) }))
       .mutation(async ({ input }) => {
@@ -701,9 +673,35 @@ export const appRouter = router({
         password: z.string().min(6),
       }))
       .mutation(async ({ input }) => {
-        const result = await registerUser(input);
+        const crypto = await import("crypto");
+        const token = crypto.randomBytes(32).toString("hex");
+        const result = await registerUser({ ...input, verificationToken: token });
         if ("error" in result) return { success: false, error: result.error };
-        return { success: true, user: { id: result.id, username: result.username, email: result.email } };
+
+        // Send verification email
+        try {
+          const verifyUrl = `https://sleeplessapp.co.za/verify?token=${token}&type=user`;
+          await sendEmail({
+            to: input.email,
+            subject: "Verify your email – Welcome to Sleepless!",
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a1a;color:#fff;padding:32px;border-radius:12px;">
+                <h1 style="color:#ff6b6b;font-size:28px;">Welcome to Sleepless! 🎉</h1>
+                <p style="color:#ccc;">Hi <strong>${input.username}</strong>,</p>
+                <p style="color:#ccc;">Please verify your email address to start discovering and booking events near you.</p>
+                <div style="text-align:center;margin:28px 0;">
+                  <a href="${verifyUrl}" style="background:#ff6b6b;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;">Verify My Email</a>
+                </div>
+                <p style="color:#888;font-size:12px;">If the button doesn't work, copy this link: ${verifyUrl}</p>
+                <p style="color:#888;font-size:13px;margin-top:24px;">Questions? Contact admin@sleeplessapp.co.za</p>
+              </div>
+            `,
+          });
+        } catch (emailErr) {
+          console.error("[UserRegister] Failed to send verification email:", emailErr);
+        }
+
+        return { success: true, user: { id: result.id, username: result.username, email: result.email }, needsVerification: true };
       }),
 
     login: publicProcedure
@@ -714,6 +712,9 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const user = await loginUser(input.email, input.password);
         if (!user) return { success: false, error: "Invalid email or password" };
+        if ((user as any).error === "unverified") {
+          return { success: false, error: "Please verify your email address first. Check your inbox for the verification link." };
+        }
         return { success: true, user: { id: user.id, username: user.username, email: user.email } };
       }),
   }),
