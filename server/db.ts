@@ -1559,21 +1559,30 @@ export async function runVerificationMigration(): Promise<void> {
   try {
     pool = new Pool({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
 
-    // app_users verification columns
-    await pool.query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS email_verified INTEGER DEFAULT 0`);
-    await pool.query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(128)`);
+    // Ensure app_users table exists first
+    try {
+      await pool.query(`CREATE TABLE IF NOT EXISTS app_users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) NOT NULL,
+        email VARCHAR(320) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )`);
+      await pool.query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS email_verified INTEGER DEFAULT 0`);
+      await pool.query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(128)`);
+    } catch (e: any) { console.error("[Migration] app_users:", e?.message); }
 
     // organizers verification columns
-    const orgColCheck = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='organizers' AND column_name='emailVerified'`);
-    const orgColExists = orgColCheck.rows.length > 0;
-    await pool.query(`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS "emailVerified" INTEGER DEFAULT 0`);
-    await pool.query(`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS "verificationToken" VARCHAR(128)`);
-
-    // If the column was just added, mark all existing organizers as verified (grandfather them in)
-    if (!orgColExists) {
-      await pool.query(`UPDATE organizers SET "emailVerified" = 1 WHERE "verificationToken" IS NULL`);
-      console.log("[Migration] Grandfathered existing organizers as email-verified");
-    }
+    try {
+      const orgColCheck = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='organizers' AND column_name='emailVerified'`);
+      const orgColExists = orgColCheck.rows.length > 0;
+      await pool.query(`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS "emailVerified" INTEGER DEFAULT 0`);
+      await pool.query(`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS "verificationToken" VARCHAR(128)`);
+      if (!orgColExists) {
+        await pool.query(`UPDATE organizers SET "emailVerified" = 1 WHERE "verificationToken" IS NULL`);
+        console.log("[Migration] Grandfathered existing organizers as email-verified");
+      }
+    } catch (e: any) { console.error("[Migration] organizers:", e?.message); }
 
     console.log("[Migration] Verification columns ensured");
   } catch (err: any) {
