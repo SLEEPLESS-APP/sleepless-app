@@ -526,6 +526,26 @@ export const appRouter = router({
         await db.update(organizers).set({ contactEmail: input.email }).where(eq(organizers.id, input.organizerId));
         return { success: true };
       }),
+    resetOrganizerPassword: publicProcedure
+      .input(z.object({ organizerId: z.number(), newPassword: z.string().min(6) }))
+      .mutation(async ({ input }) => {
+        const success = await updateOrganizerPassword(input.organizerId, input.newPassword);
+        return { success };
+      }),
+    listAllOrganizers: publicProcedure
+      .query(async () => {
+        const db = await getDb();
+        if (!db) return [];
+        const { organizers } = await import("../drizzle/schema.js");
+        const rows = await db.select().from(organizers);
+        return rows.map((o: any) => ({
+          id: o.id,
+          companyName: o.companyName,
+          contactEmail: o.contactEmail,
+          verified: o.verified,
+          emailVerified: o.emailVerified,
+        }));
+      }),
   }),
 
   // PayFast payment
