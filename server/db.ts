@@ -1674,7 +1674,15 @@ export async function validateTicketCheckIn(
   const db = await getDb();
   if (!db) return { status: "not_found" };
   try {
-    const rows = await db.select().from(bookings).where(eq(bookings.transactionId, transactionId)).limit(1);
+    let rows;
+    // Support two QR formats: raw transactionId, or SLEEPLESS-BOOKING-<id>
+    const bookingIdMatch = transactionId.match(/^SLEEPLESS-BOOKING-(\d+)$/i);
+    if (bookingIdMatch) {
+      const bid = parseInt(bookingIdMatch[1], 10);
+      rows = await db.select().from(bookings).where(eq(bookings.id, bid)).limit(1);
+    } else {
+      rows = await db.select().from(bookings).where(eq(bookings.transactionId, transactionId)).limit(1);
+    }
     if (rows.length === 0) return { status: "not_found" };
     const booking = rows[0];
 

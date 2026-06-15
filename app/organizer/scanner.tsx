@@ -20,21 +20,25 @@ export default function ScannerScreen() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const scannerRef = useRef<any>(null);
   const lastScanRef = useRef<string>("");
+  const [debugRaw, setDebugRaw] = useState<string>("");
 
   const decodePayload = (raw: string): string | null => {
-    // QR contains base64-encoded JSON with transactionId in field "x"
+    const trimmed = (raw || "").trim();
+    // Case 1: raw value is already a transaction ID or booking ref
+    if (trimmed.startsWith("SLP-")) return trimmed;
+    if (/^SLEEPLESS-BOOKING-\d+$/i.test(trimmed)) return trimmed;
+    // Case 2: base64-encoded JSON with transactionId in field "x" or "t"
     try {
-      const json = JSON.parse(atob(raw));
+      const json = JSON.parse(atob(trimmed));
       return json.x || json.t || null;
     } catch {
-      // Maybe the raw value is already a transaction ID
-      if (raw.startsWith("SLP-")) return raw;
       return null;
     }
   };
 
   const handleScan = async (decodedText: string) => {
     if (!organizer) return;
+    setDebugRaw(decodedText);
     if (decodedText === lastScanRef.current) return; // debounce duplicate scans
     lastScanRef.current = decodedText;
 
@@ -67,9 +71,20 @@ export default function ScannerScreen() {
       const { Html5Qrcode } = await import("html5-qrcode");
       const scanner = new Html5Qrcode("qr-reader");
       scannerRef.current = scanner;
+
+      // Pick a camera — prefer rear ("back"/"environment") on phones, fall back to any (webcam)
+      let cameraConfig: any = { facingMode: "environment" };
+      try {
+        const cameras = await Html5Qrcode.getCameras();
+        if (cameras && cameras.length > 0) {
+          const rear = cameras.find((c: any) => /back|rear|environment/i.test(c.label));
+          cameraConfig = { deviceId: { exact: (rear ?? cameras[0]).id } };
+        }
+      } catch {}
+
       await scanner.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        cameraConfig,
+        { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
         (decodedText: string) => handleScan(decodedText),
         () => {} // ignore per-frame errors
       );
@@ -125,6 +140,7 @@ export default function ScannerScreen() {
           </View>
 
           {cameraError && <Text style={styles.error}>{cameraError}</Text>}
+          {debugRaw ? <Text style={{ color: "#0ff", fontSize: 11, marginTop: 8 }}>Scanned: {debugRaw}</Text> : null}
 
           {/* Result banner */}
           {result && (
