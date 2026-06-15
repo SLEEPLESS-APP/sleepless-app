@@ -1547,3 +1547,88 @@ export async function updateOrganizerProfile(
     return false;
   }
 }
+
+/**
+ * Migration — adds email verification columns to existing tables.
+ * Safe to run on every startup (uses IF NOT EXISTS).
+ */
+export async function runVerificationMigration(): Promise<void> {
+  const connStr = process.env.DATABASE_URL;
+  if (!connStr) return;
+  let pool: Pool | null = null;
+  try {
+    pool = new Pool({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
+
+    // app_users verification columns
+    await pool.query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS email_verified INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(128)`);
+
+    // organizers verification columns
+    const orgColCheck = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='organizers' AND column_name='emailVerified'`);
+    const orgColExists = orgColCheck.rows.length > 0;
+    await pool.query(`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS "emailVerified" INTEGER DEFAULT 0`);
+    await pool.query(`ALTER TABLE organizers ADD COLUMN IF NOT EXISTS "verificationToken" VARCHAR(128)`);
+
+    // If the column was just added, mark all existing organizers as verified (grandfather them in)
+    if (!orgColExists) {
+      await pool.query(`UPDATE organizers SET "emailVerified" = 1 WHERE "verificationToken" IS NULL`);
+      console.log("[Migration] Grandfathered existing organizers as email-verified");
+    }
+
+    console.log("[Migration] Verification columns ensured");
+  } catch (err: any) {
+    console.error("[Migration] Failed:", err?.message ?? err);
+  } finally {
+    if (pool) await pool.end().catch(() => {});
+  }
+}
+
+/**
+ * Generate a verification token and store it for an organizer.
+ */
+export async function setOrganizerVerificationToken(organizerId: number, token: string): Promise<void> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  try {
+    await pool.query(`UPDATE organizers SET "verificationToken" = $1 WHERE id = $2`, [token, organizerId]);
+  } finally {
+    await pool.end().catch(() => {});
+  }
+}
+
+/**
+ * Verify an organizer's email by token.
+ */
+export async function verifyOrganizerEmail(token: string): Promise<boolean> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  try {
+    const res = await pool.query(
+      `UPDATE organizers SET "emailVerified" = 1, "verificationToken" = NULL WHERE "verificationToken" = $1 RETURNING id`,
+      [token]
+    );
+    return res.rows.length > 0;
+  } catch (err) {
+    console.error("[Database] verifyOrganizerEmail error:", err);
+    return false;
+  } finally {
+    await pool.end().catch(() => {});
+  }
+}
+
+/**
+ * Verify an app_user's email by token.
+ */
+export async function verifyUserEmail(token: string): Promise<boolean> {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+  try {
+    const res = await pool.query(
+      `UPDATE app_users SET email_verified = 1, verification_token = NULL WHERE verification_token = $1 RETURNING id`,
+      [token]
+    );
+    return res.rows.length > 0;
+  } catch (err) {
+    console.error("[Database] verifyUserEmail error:", err);
+    return false;
+  } finally {
+    await pool.end().catch(() => {});
+  }
+}

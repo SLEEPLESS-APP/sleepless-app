@@ -5,7 +5,7 @@ import { getDb } from "./db.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { getOrganizerStats, getOrganizerEvents, getEventBookings, getPendingEvents, approveEvent, rejectEvent, getOrganizerAnalytics, createOrganizer, getOrganizerByEmail, createEvent, updateEvent, getAdminMetrics, getAuditLog, logAdminAction, loginOrganizer, updateOrganizerPassword, createPasswordResetToken, getPasswordResetToken, markTokenAsUsed, getEventById, getPendingOrganizers, approveOrganizer, rejectOrganizer, getTicketTypesByEventId, createTicketTypes, updateTicketType, deleteTicketType, deleteTicketTypesByEventId, checkTicketTypeAvailability, incrementTicketTypeSold, getOrganizerByEventId, createBooking, getBookingsByUserId, loginAdmin, seedAdminAccount, registerUser, loginUser, deleteEvent, updateOrganizerProfile } from "./db.js";
+import { setOrganizerVerificationToken, verifyOrganizerEmail, verifyUserEmail, getOrganizerStats, getOrganizerEvents, getEventBookings, getPendingEvents, approveEvent, rejectEvent, getOrganizerAnalytics, createOrganizer, getOrganizerByEmail, createEvent, updateEvent, getAdminMetrics, getAuditLog, logAdminAction, loginOrganizer, updateOrganizerPassword, createPasswordResetToken, getPasswordResetToken, markTokenAsUsed, getEventById, getPendingOrganizers, approveOrganizer, rejectOrganizer, getTicketTypesByEventId, createTicketTypes, updateTicketType, deleteTicketType, deleteTicketTypesByEventId, checkTicketTypeAvailability, incrementTicketTypeSold, getOrganizerByEventId, createBooking, getBookingsByUserId, loginAdmin, seedAdminAccount, registerUser, loginUser, deleteEvent, updateOrganizerProfile } from "./db.js";
 import { checkDuplicateEvent } from "./checkDuplicate.js";
 import { sendEventApprovalEmail, sendEventRejectionEmail, sendEmail, sendBookingConfirmationEmail } from "./email.js";
 import { storagePut } from "./storage.js";
@@ -78,6 +78,17 @@ export const appRouter = router({
   }),
 
   // Organizer routes
+  verify: router({
+    email: publicProcedure
+      .input(z.object({ token: z.string(), type: z.enum(["organizer", "user"]) }))
+      .mutation(async ({ input }) => {
+        const ok = input.type === "organizer"
+          ? await verifyOrganizerEmail(input.token)
+          : await verifyUserEmail(input.token);
+        return { success: ok };
+      }),
+  }),
+
   organizer: router({
     login: publicProcedure
       .input(
@@ -96,10 +107,17 @@ export const appRouter = router({
           };
         }
 
+        if ((organizer as any).emailVerified === 0) {
+          return {
+            success: false,
+            message: "Please verify your email address first. Check your inbox for the verification link.",
+          };
+        }
+
         if (organizer.verified === 0) {
           return {
             success: false,
-            message: "Your account is pending verification. Please wait for admin approval.",
+            message: "Your account is pending admin approval. You'll be notified once approved.",
           };
         }
 
@@ -133,32 +151,35 @@ export const appRouter = router({
           return { success: true, organizer: null };
         }
 
-        // Send welcome email
+        // Generate verification token and send verification email
         try {
+          const crypto = await import("crypto");
+          const token = crypto.randomBytes(32).toString("hex");
+          await setOrganizerVerificationToken(organizer.id, token);
+          const verifyUrl = `https://sleeplessapp.co.za/verify?token=${token}&type=organizer`;
+
           await sendEmail({
             to: input.email,
-            subject: "Welcome to Sleepless – Application Received!",
+            subject: "Verify your email – Welcome to Sleepless!",
             html: `
               <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#0a0a1a;color:#fff;padding:32px;border-radius:12px;">
                 <h1 style="color:#ff6b6b;font-size:28px;margin-bottom:8px;">Welcome to Sleepless! 🎉</h1>
                 <p style="color:#ccc;font-size:16px;">Hi <strong>${organizer.companyName}</strong>,</p>
-                <p style="color:#ccc;">Thank you for registering as an event organizer on Sleepless. Your application has been received and is currently being reviewed by our admin team.</p>
+                <p style="color:#ccc;">Thanks for registering as an event organizer. First, please verify your email address by clicking the button below:</p>
+                <div style="text-align:center;margin:28px 0;">
+                  <a href="${verifyUrl}" style="background:#ff6b6b;color:#fff;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:700;display:inline-block;">Verify My Email</a>
+                </div>
                 <div style="background:#1a1a2e;border-left:4px solid #ff6b6b;padding:16px;border-radius:8px;margin:24px 0;">
                   <p style="color:#fff;margin:0;font-size:15px;">⏳ <strong>What happens next?</strong></p>
-                  <p style="color:#ccc;margin:8px 0 0 0;">Our team will review your application and approve your account within 24-48 hours. You'll receive an email notification once your account is activated.</p>
+                  <p style="color:#ccc;margin:8px 0 0 0;">After verifying your email, our team will review your application and approve your account within 24-48 hours. You'll be notified once activated.</p>
                 </div>
-                <p style="color:#ccc;">Once approved, you'll be able to:</p>
-                <ul style="color:#ccc;">
-                  <li>Create and manage events</li>
-                  <li>Sell tickets directly on the platform</li>
-                  <li>Track attendance and analytics</li>
-                </ul>
-                <p style="color:#888;font-size:13px;margin-top:32px;">If you have any questions, contact us at admin@sleeplessapp.co.za</p>
+                <p style="color:#888;font-size:12px;">If the button doesn't work, copy this link: ${verifyUrl}</p>
+                <p style="color:#888;font-size:13px;margin-top:24px;">Questions? Contact admin@sleeplessapp.co.za</p>
               </div>
             `,
           });
         } catch (emailErr) {
-          console.error("[Register] Failed to send welcome email:", emailErr);
+          console.error("[Register] Failed to send verification email:", emailErr);
         }
 
         return { success: true, organizer };
