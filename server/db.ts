@@ -1572,8 +1572,14 @@ export async function runVerificationMigration(): Promise<void> {
         password_hash VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT NOW()
       )`);
+      const userColCheck = await pool.query(`SELECT column_name FROM information_schema.columns WHERE table_name='app_users' AND column_name='email_verified'`);
+      const userColExists = userColCheck.rows.length > 0;
       await pool.query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS email_verified INTEGER DEFAULT 0`);
       await pool.query(`ALTER TABLE app_users ADD COLUMN IF NOT EXISTS verification_token VARCHAR(128)`);
+      if (!userColExists) {
+        await pool.query(`UPDATE app_users SET email_verified = 1 WHERE verification_token IS NULL`);
+        console.log("[Migration] Grandfathered existing app_users as email-verified");
+      }
     } catch (e: any) { console.error("[Migration] app_users:", e?.message); }
 
     // organizers verification columns
