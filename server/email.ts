@@ -234,9 +234,15 @@ export async function sendBookingConfirmationEmail(
   eventTitle: string,
   quantity: number,
   totalAmount: number,
-  bookingId: number
+  bookingId: number,
+  qrCodeData?: string,
+  eventDate?: string,
+  eventVenue?: string
 ): Promise<boolean> {
   const subject = `🎫 Booking Confirmed: ${eventTitle}`;
+  // Generate QR code image URL using a public QR generator (encodes the validation payload)
+  const qrPayload = qrCodeData ?? `SLEEPLESS-BOOKING-${bookingId}`;
+  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(qrPayload)}`;
   const html = `
     <!DOCTYPE html>
     <html>
@@ -278,8 +284,14 @@ export async function sendBookingConfirmationEmail(
               <strong>R${(totalAmount / 100).toFixed(2)}</strong>
             </div>
           </div>
-          <p><strong>Important:</strong> Please present your QR code ticket at the event entrance. You can access it anytime in the ${APP_NAME} app under "My Bookings".</p>
-          <a href="https://sleeplessapp.co.za/bookings/${bookingId}" class="button">View Booking</a>
+          ${eventDate ? `<div class="detail-row"><span>Date:</span><strong>${eventDate}</strong></div>` : ""}
+          ${eventVenue ? `<div class="detail-row"><span>Venue:</span><strong>${eventVenue}</strong></div>` : ""}
+          <div style="text-align:center;margin:28px 0;padding:24px;background:white;border-radius:8px;">
+            <p style="margin:0 0 12px 0;font-weight:bold;color:#333;">Your Entry Ticket</p>
+            <img src="${qrImageUrl}" alt="QR Code Ticket" width="280" height="280" style="display:block;margin:0 auto;border:8px solid #fff;border-radius:8px;" />
+            <p style="margin:12px 0 0 0;font-size:12px;color:#999;">Booking #${bookingId}</p>
+          </div>
+          <p><strong>Important:</strong> Present this QR code at the event entrance for scanning. Each ticket admits ${quantity} ${quantity === 1 ? "person" : "people"}. You can also access it anytime in the ${APP_NAME} app under "My Bookings".</p>
         </div>
         <div class="footer">
           <p>© 2026 ${APP_NAME}. All rights reserved.</p>
