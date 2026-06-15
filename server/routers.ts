@@ -87,6 +87,26 @@ export const appRouter = router({
           sendgridKeyPrefix: (process.env.SENDGRID_API_KEY ?? "").slice(0, 5),
         };
       }),
+    testEmail: publicProcedure
+      .input(z.object({ to: z.string().email() }))
+      .mutation(async ({ input }) => {
+        try {
+          const apiKey = process.env.SENDGRID_API_KEY;
+          if (!apiKey) return { success: false, error: "No API key" };
+          const sgMail = await import("@sendgrid/mail" as any);
+          sgMail.default.setApiKey(apiKey);
+          await sgMail.default.send({
+            from: "admin@sleeplessapp.co.za",
+            to: input.to,
+            subject: "Sleepless Test Email",
+            html: "<p>This is a test email from Sleepless.</p>",
+          });
+          return { success: true, error: null };
+        } catch (err: any) {
+          const detail = err?.response?.body?.errors ?? err?.message ?? String(err);
+          return { success: false, error: JSON.stringify(detail) };
+        }
+      }),
     email: publicProcedure
       .input(z.object({ token: z.string(), type: z.enum(["organizer", "user"]) }))
       .mutation(async ({ input }) => {
