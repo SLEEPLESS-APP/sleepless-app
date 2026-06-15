@@ -62,6 +62,12 @@ export default function OrganizerDashboard() {
       route: "/organizer/bookings",
     },
     {
+      icon: "📷",
+      title: "Scan Tickets",
+      description: "Scan & verify tickets at the gate",
+      route: "/organizer/scanner",
+    },
+    {
       icon: "📋",
       title: "Templates",
       description: "Manage event templates",
