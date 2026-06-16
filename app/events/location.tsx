@@ -25,10 +25,15 @@ export default function LocationScreen() {
     Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${query}`);
   };
 
-  const handleWalking = () => {
+  const handleUber = () => {
     if (!event) return;
-    const query = encodeURIComponent(`${event.venue}, ${event.city}`);
-    Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${query}&travelmode=walking`);
+    const dropoff = encodeURIComponent(`${event.venue}, ${event.city}`);
+    const nickname = encodeURIComponent(event.venue);
+    // Uber universal deep link: uses rider's current location as pickup,
+    // venue address as dropoff. Opens the Uber app (or mobile site) with route + fare.
+    Linking.openURL(
+      `https://m.uber.com/ul/?action=setPickup&pickup=my_location&dropoff[formatted_address]=${dropoff}&dropoff[nickname]=${nickname}`
+    );
   };
 
   const handleShareLocation = () => {
@@ -86,16 +91,18 @@ export default function LocationScreen() {
           {/* Transport Options */}
           <View style={styles.transportContainer}>
             <Pressable
-              onPress={handleWalking}
+              onPress={handleUber}
               style={({ pressed }) => [styles.transportButton, pressed && styles.pressed]}
             >
-              <MaterialIcons name="directions-walk" size={28} color="#ffffff" />
+              <MaterialIcons name="local-taxi" size={28} color="#ffffff" />
+              <Text style={styles.transportLabel}>Uber</Text>
             </Pressable>
             <Pressable
               onPress={handleDriving}
               style={({ pressed }) => [styles.transportButton, pressed && styles.pressed]}
             >
               <MaterialIcons name="directions-car" size={28} color="#ffffff" />
+              <Text style={styles.transportLabel}>Drive</Text>
             </Pressable>
           </View>
 
@@ -110,6 +117,12 @@ export default function LocationScreen() {
 }
 
 const styles = StyleSheet.create({
+  transportLabel: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 6,
+  },
   safeArea: {
     flex: 1,
   },
