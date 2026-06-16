@@ -57,7 +57,7 @@ export default function EventsGridScreen() {
       <Image source={{ uri: item.posterUrl }} style={styles.eventImage} />
       <View style={styles.eventOverlay}>
         <View style={styles.priceTag}>
-          <Text style={styles.priceText}>R{(item.price / 100).toFixed(0)}</Text>
+          <Text style={styles.priceText}>From R{item.price}</Text>
         </View>
         <View style={styles.typeTag}>
           <Text style={styles.typeText}>{item.eventType}</Text>

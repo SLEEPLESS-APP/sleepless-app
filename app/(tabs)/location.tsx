@@ -1,4 +1,4 @@
-import { Text, View, ScrollView, TouchableOpacity, StyleSheet, Alert, Pressable, ActivityIndicator, Platform } from "react-native";
+import { Text, View, ScrollView, TouchableOpacity, StyleSheet, Alert, Pressable, ActivityIndicator, Platform, TextInput } from "react-native";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";

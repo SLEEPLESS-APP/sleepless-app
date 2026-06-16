@@ -20,7 +20,6 @@ export default function ScannerScreen() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const scannerRef = useRef<any>(null);
   const lastScanRef = useRef<string>("");
-  const [debugRaw, setDebugRaw] = useState<string>("");
 
   const decodePayload = (raw: string): string | null => {
     const trimmed = (raw || "").trim();
@@ -38,7 +37,6 @@ export default function ScannerScreen() {
 
   const handleScan = async (decodedText: string) => {
     if (!organizer) return;
-    setDebugRaw(decodedText);
     if (decodedText === lastScanRef.current) return; // debounce duplicate scans
     lastScanRef.current = decodedText;
 
@@ -140,7 +138,6 @@ export default function ScannerScreen() {
           </View>
 
           {cameraError && <Text style={styles.error}>{cameraError}</Text>}
-          {debugRaw ? <Text style={{ color: "#0ff", fontSize: 11, marginTop: 8 }}>Scanned: {debugRaw}</Text> : null}
 
           {/* Result banner */}
           {result && (
