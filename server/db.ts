@@ -1693,14 +1693,16 @@ export async function validateTicketCheckIn(
       return { status: "wrong_event", booking, eventTitle: event?.title };
     }
 
-    if ((booking as any).checkedIn === 1) {
+    // Atomic check-in: only the first scan flips checkedIn 0 -> 1.
+    // Any concurrent/second scan gets an empty result and is "already_used".
+    const updated = await db.update(bookings)
+      .set({ checkedIn: 1, checkedInAt: new Date() } as any)
+      .where(and(eq(bookings.id, booking.id), eq(bookings.checkedIn, 0)))
+      .returning({ id: bookings.id });
+
+    if (updated.length === 0) {
       return { status: "already_used", booking, eventTitle: event.title };
     }
-
-    // Mark as checked in
-    await db.update(bookings)
-      .set({ checkedIn: 1, checkedInAt: new Date() } as any)
-      .where(eq(bookings.id, booking.id));
 
     return { status: "valid", booking, eventTitle: event.title };
   } catch (err) {
